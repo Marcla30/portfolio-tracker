@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Portfolio {
+  id          String    @id @default(uuid())
+  name        String
+  type        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  holdings    Holding[]
+  transactions Transaction[] @relation("PortfolioTransactions")
+  wallets     WalletAddress[]
+}
+
+model Asset {
+  id          String    @id @default(uuid())
+  symbol      String    @unique
+  name        String
+  type        AssetType
+  logoUrl     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  holdings    Holding[]
+  transactions Transaction[]
+  priceCache  PriceCache[]
+}
+
+enum AssetType {
+  crypto
+  stock
+  etf
+  metal
+  cash
+  other
+}
+
+model Holding {
+  id              String    @id @default(uuid())
+  portfolioId     String
+  assetId         String
+  quantity        Decimal   @db.Decimal(20, 8)
+  avgPrice        Decimal   @db.Decimal(20, 8)
+  currency        String    @default("EUR")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  asset           Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, assetId])
+}
+
+model Transaction {
+  id              String          @id @default(uuid())
+  portfolioId     String
+  assetId         String
+  type            TransactionType
+  quantity        Decimal         @db.Decimal(20, 8)
+  pricePerUnit    Decimal         @db.Decimal(20, 8)
+  fees            Decimal         @default(0) @db.Decimal(20, 8)
+  currency        String          @default("EUR")
+  date            DateTime
+  notes           String?
+  linkedTxId      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  portfolio       Portfolio       @relation("PortfolioTransactions", fields: [portfolioId], references: [id], onDelete: Cascade)
+  asset           Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  linkedTx        Transaction?    @relation("SwapLink", fields: [linkedTxId], references: [id])
+  swapTx          Transaction[]   @relation("SwapLink")
+
+  @@index([portfolioId, assetId])
+  @@index([date])
+}
+
+enum TransactionType {
+  buy
+  sell
+  swap_out
+  swap_in
+  transfer_in
+  transfer_out
+}
+
+model WalletAddress {
+  id              String    @id @default(uuid())
+  portfolioId     String
+  address         String
+  blockchain      String
+  lastSync        DateTime?
+  lastTxHash      String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([address, blockchain])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  title       String
+  body        String
+  type        String
+  data        Json?
+  sent        Boolean   @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model PriceCache {
+  id          String    @id @default(uuid())
+  assetId     String
+  price       Decimal   @db.Decimal(20, 8)
+  currency    String    @default("EUR")
+  timestamp   DateTime  @default(now())
+  asset       Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, timestamp])
+}
+
+model Settings {
+  id                    String   @id @default(uuid())
+  defaultCurrency       String   @default("EUR")
+  language              String   @default("fr")
+  theme                 String   @default("blue")
+  maxAssetConcentration Int      @default(40)
+  maxCategoryConcentration Int   @default(60)
+  allocationTargets     Json?
+  vapidPublicKey        String?
+  vapidPrivateKey       String?
+  pushSubscriptions     Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model ImportHistory {
+  id              String   @id @default(uuid())
+  portfolioId     String
+  fileName        String
+  totalRows       Int
+  successCount    Int
+  ignoredCount    Int
+  errorCount      Int
+  ignoredAssets   Json
+  errors          Json
+  createdAt       DateTime @default(now())
+}

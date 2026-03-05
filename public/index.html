@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio Tracker</title>
+  <link rel="stylesheet" href="/styles/main.css?v=16">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="mobile-menu-btn" id="mobileMenuBtn">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M3 6h18M3 12h18M3 18h18"/>
+    </svg>
+  </div>
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <nav class="navbar" id="navbar">
+    <div class="nav-brand">Portfolio Tracker</div>
+    <div class="nav-links" id="navLinks">
+      <a href="/" data-route="dashboard">Dashboard</a>
+      <a href="/positions" data-route="positions">Positions</a>
+      <a href="/stats" data-route="stats">Stats</a>
+      <a href="/add" data-route="add">Add</a>
+      <a href="/settings" data-route="settings">Settings</a>
+    </div>
+  </nav>
+
+  <main id="app"></main>
+
+  <script src="/services/api.js?v=59"></script>
+  <script src="/services/appState.js?v=59"></script>
+  <script src="/services/i18n.js?v=59"></script>
+  <script src="/controllers/dashboardController.js?v=59"></script>
+  <script src="/controllers/statsController.js?v=59"></script>
+  <script src="/controllers/positionsController.js?v=59"></script>
+  <script src="/controllers/addController.js?v=59"></script>
+  <script src="/controllers/settingsController.js?v=59"></script>
+  <script src="/controllers/router.js?v=59"></script>
+  <script src="/app.js?v=59"></script>
+</body>
+</html>
