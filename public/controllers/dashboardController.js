@@ -160,34 +160,12 @@ const dashboardController = {
       return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
     
-    const days = this.getTimeframeDays();
-    const dataPoints = this.getDataPoints();
-    const labels = [];
-    const data = [];
-
-    // Generate historical data points
-    for (let i = dataPoints; i >= 0; i--) {
-      const date = new Date();
-      
-      if (this.currentTimeframe === '24h') {
-        date.setHours(date.getHours() - i);
-        labels.push(date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
-      } else {
-        const daysAgo = Math.floor((days * i) / dataPoints);
-        date.setDate(date.getDate() - daysAgo);
-        
-        if (this.currentTimeframe === '7d' || this.currentTimeframe === '30d') {
-          labels.push(date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' }));
-        } else {
-          labels.push(date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }));
-        }
-      }
-      
-      // Simulate historical value
-      const value = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-      const variance = (Math.random() - 0.5) * 0.08;
-      data.push(value * (1 + variance * (i / dataPoints)));
-    }
+    // Fetch real portfolio history
+    const response = await fetch(`/api/history?timeframe=${this.currentTimeframe}&currency=${appState.currency}`);
+    const historyData = await response.json();
+    
+    const labels = historyData.labels;
+    const data = historyData.data;
 
     const ctx = document.getElementById('portfolioChart');
     if (ctx) {

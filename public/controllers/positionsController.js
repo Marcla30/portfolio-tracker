@@ -1,37 +1,144 @@
 const positionsController = {
+  filterType: 'all',
+  sortBy: 'name',
+  
   async render() {
     const app = document.getElementById('app');
     const holdings = await api.holdings.getAll('', appState.currency);
     const transactions = await api.transactions.getAll();
 
+    // Group all assets that have transactions (even if holding is 0)
+    const assetsWithTransactions = new Map();
+    
+    transactions.forEach(t => {
+      const key = `${t.portfolioId}-${t.assetId}`;
+      if (!assetsWithTransactions.has(key)) {
+        assetsWithTransactions.set(key, {
+          asset: t.asset,
+          portfolioId: t.portfolioId,
+          assetId: t.assetId,
+          transactions: [],
+          holding: null
+        });
+      }
+      assetsWithTransactions.get(key).transactions.push(t);
+    });
+    
+    // Merge with current holdings
+    holdings.forEach(h => {
+      const key = `${h.portfolioId}-${h.assetId}`;
+      if (assetsWithTransactions.has(key)) {
+        assetsWithTransactions.get(key).holding = h;
+      } else {
+        assetsWithTransactions.set(key, {
+          asset: h.asset,
+          portfolioId: h.portfolioId,
+          assetId: h.assetId,
+          holding: h,
+          transactions: transactions.filter(t => t.assetId === h.assetId && t.portfolioId === h.portfolioId)
+        });
+      }
+    });
+
     app.innerHTML = `
       <div class="card">
-        <h2>${appState.t('positions.title')}</h2>
-        ${holdings.map(h => {
-          const avgPrice = parseFloat(h.avgPrice);
-          const pl = h.currentValue - (parseFloat(h.quantity) * avgPrice);
-          const plPercent = avgPrice > 0 ? ((h.currentPrice - avgPrice) / avgPrice * 100) : 0;
-          const assetTransactions = transactions.filter(t => t.assetId === h.assetId && t.portfolioId === h.portfolioId);
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+          <h2 style="margin: 0;">${appState.t('positions.title')}</h2>
+          <div style="display: flex; gap: 1rem;">
+            <select id="filterType" style="width: auto;">
+              <option value="all">${appState.t('positions.filterAll')}</option>
+              <option value="crypto">${appState.t('add.typeCrypto')}</option>
+              <option value="stock">${appState.t('add.typeStock')}</option>
+              <option value="etf">${appState.t('add.typeEtf')}</option>
+              <option value="metal">${appState.t('add.typeMetal')}</option>
+              <option value="cash">${appState.t('add.typeCash')}</option>
+            </select>
+            <select id="sortBy" style="width: auto;">
+              <option value="name">${appState.t('positions.sortName')}</option>
+              <option value="value">${appState.t('positions.sortValue')}</option>
+              <option value="pl">${appState.t('positions.sortPL')}</option>
+              <option value="plPercent">${appState.t('positions.sortPLPercent')}</option>
+            </select>
+          </div>
+        </div>
+        ${Array.from(assetsWithTransactions.values())
+          .filter(item => this.filterType === 'all' || item.asset.type === this.filterType)
+          .sort((a, b) => {
+            const aHolding = a.holding;
+            const bHolding = b.holding;
+            
+            if (this.sortBy === 'name') {
+              return a.asset.name.localeCompare(b.asset.name);
+            } else if (this.sortBy === 'value') {
+              const aValue = aHolding ? aHolding.currentValue : 0;
+              const bValue = bHolding ? bHolding.currentValue : 0;
+              return bValue - aValue;
+            } else if (this.sortBy === 'pl') {
+              const aPL = aHolding ? aHolding.currentValue - (parseFloat(aHolding.quantity) * parseFloat(aHolding.avgPrice)) : 0;
+              const bPL = bHolding ? bHolding.currentValue - (parseFloat(bHolding.quantity) * parseFloat(bHolding.avgPrice)) : 0;
+              return bPL - aPL;
+            } else if (this.sortBy === 'plPercent') {
+              const aAvg = aHolding ? parseFloat(aHolding.avgPrice) : 0;
+              const bAvg = bHolding ? parseFloat(bHolding.avgPrice) : 0;
+              const aPLPercent = aHolding && aAvg > 0 ? ((aHolding.currentPrice - aAvg) / aAvg * 100) : 0;
+              const bPLPercent = bHolding && bAvg > 0 ? ((bHolding.currentPrice - bAvg) / bAvg * 100) : 0;
+              return bPLPercent - aPLPercent;
+            }
+            return 0;
+          })
+          .map(item => {
+          const h = item.holding;
+          const assetTransactions = item.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+          
+          // Calculate average price and quantity
+          let avgPrice = 0;
+          let quantity = 0;
+          let currentValue = 0;
+          let currentPrice = 0;
+          
+          if (h) {
+            avgPrice = parseFloat(h.avgPrice);
+            quantity = parseFloat(h.quantity);
+            currentValue = h.currentValue;
+            currentPrice = h.currentPrice;
+          } else {
+            // Calculate from transactions for sold-out positions
+            let totalCost = 0;
+            let totalQty = 0;
+            assetTransactions.forEach(t => {
+              if (t.type === 'buy') {
+                totalCost += parseFloat(t.quantity) * parseFloat(t.pricePerUnit);
+                totalQty += parseFloat(t.quantity);
+              }
+            });
+            avgPrice = totalQty > 0 ? totalCost / totalQty : 0;
+          }
+          
+          const pl = currentValue - (quantity * avgPrice);
+          const plPercent = avgPrice > 0 && quantity > 0 ? ((currentPrice - avgPrice) / avgPrice * 100) : 0;
           
           return `
             <div style="margin-bottom: 2rem; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
               <div style="background: var(--bg-tertiary); padding: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <div>
-                  <h3 style="margin: 0;">${h.asset.name} (${h.asset.symbol})</h3>
+                  <h3 style="margin: 0;">${item.asset.name} (${item.asset.symbol})</h3>
                   <div style="color: var(--text-secondary); margin-top: 0.5rem;">
-                    ${parseFloat(h.quantity)} × ${appState.formatCurrency(avgPrice)} = ${appState.formatCurrency(h.currentValue)}
+                    ${quantity > 0 ? `${quantity} × ${appState.formatCurrency(avgPrice)} = ${appState.formatCurrency(currentValue)}` : `${appState.t('positions.soldOut')}`}
                   </div>
                 </div>
-                <div style="text-align: right;">
-                  <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 1.2rem; font-weight: bold;">
-                    ${appState.formatCurrency(pl)} (${plPercent.toFixed(2)}%)
+                ${quantity > 0 ? `
+                  <div style="text-align: right;">
+                    <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 1.2rem; font-weight: bold;">
+                      ${appState.formatCurrency(pl)} (${plPercent.toFixed(2)}%)
+                    </div>
+                    <div style="color: var(--text-secondary); margin-top: 0.25rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
                   </div>
-                  <div style="color: var(--text-secondary); margin-top: 0.25rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(h.currentPrice)}</div>
-                </div>
-                <div style="display: flex; gap: 0.5rem;">
-                  <button onclick="positionsController.editPosition('${h.id}', '${h.asset.name}', ${h.quantity}, ${h.avgPrice})">${appState.t('positions.edit')}</button>
-                  <button onclick="positionsController.deletePosition('${h.id}', '${h.asset.name}')" style="background: var(--danger);">${appState.t('positions.delete')}</button>
-                </div>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <button onclick="positionsController.sellPosition('${h.id}', '${item.assetId}', '${item.asset.name}', '${item.asset.symbol}', ${quantity}, ${avgPrice}, '${item.portfolioId}')" style="background: var(--warning);">${appState.t('positions.sell')}</button>
+                    <button onclick="positionsController.editPosition('${h.id}', '${item.asset.name}', ${quantity}, ${avgPrice})">${appState.t('positions.edit')}</button>
+                    <button onclick="positionsController.deletePosition('${h.id}', '${item.asset.name}')" style="background: var(--danger);">${appState.t('positions.delete')}</button>
+                  </div>
+                ` : ''}
               </div>
               
               ${assetTransactions.length > 0 ? `
@@ -46,18 +153,27 @@ const positionsController = {
                         <th>${appState.t('dashboard.avgPrice')}</th>
                         <th>${appState.t('positions.fees')}</th>
                         <th>${appState.t('positions.total')}</th>
+                        <th>P/L</th>
                         <th>${appState.t('positions.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${assetTransactions.map(t => `
+                      ${assetTransactions.map(t => {
+                        const txTotal = parseFloat(t.quantity) * parseFloat(t.pricePerUnit);
+                        let realizedPL = 0;
+                        if (t.type === 'sell') {
+                          realizedPL = (parseFloat(t.pricePerUnit) - avgPrice) * parseFloat(t.quantity) - parseFloat(t.fees);
+                        }
+                        
+                        return `
                         <tr>
-                          <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
-                          <td><span style="color: ${t.type === 'buy' ? 'var(--success)' : 'var(--danger)'}">${t.type === 'buy' ? appState.t('positions.buy') : appState.t('positions.sell')}</span></td>
+                          <td>${new Date(t.date).toLocaleString(appState.language === 'fr' ? 'fr-FR' : 'en-US')}</td>
+                          <td><span style="color: ${t.type === 'buy' ? 'var(--success)' : 'var(--danger)'}">${ t.type === 'buy' ? appState.t('positions.buy') : appState.t('positions.sell')}</span></td>
                           <td>${parseFloat(t.quantity)}</td>
                           <td>${appState.formatCurrency(parseFloat(t.pricePerUnit))}</td>
                           <td>${appState.formatCurrency(parseFloat(t.fees))}</td>
-                          <td>${appState.formatCurrency(parseFloat(t.quantity) * parseFloat(t.pricePerUnit) + parseFloat(t.fees))}</td>
+                          <td>${appState.formatCurrency(txTotal + parseFloat(t.fees))}</td>
+                          <td>${t.type === 'sell' ? `<span class="${realizedPL >= 0 ? 'positive' : 'negative'}">${appState.formatCurrency(realizedPL)}</span>` : '-'}</td>
                           <td>
                             <button onclick='positionsController.editTransaction("${t.id}", "${t.type}", ${t.quantity}, ${t.pricePerUnit}, ${t.fees}, "${t.date}")' style="padding: 0.4rem 0.6rem; font-size: 0.85rem; background: transparent; border: 1px solid var(--border);" title="${appState.t('positions.edit')}">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -75,7 +191,7 @@ const positionsController = {
                             </button>
                           </td>
                         </tr>
-                      `).join('')}
+                      `}).join('')}
                     </tbody>
                   </table>
                 </div>
@@ -131,7 +247,7 @@ const positionsController = {
             </div>
             <div class="form-group">
               <label>${appState.t('positions.date')}</label>
-              <input type="date" name="date" id="editTxDate" required>
+              <input type="datetime-local" name="date" id="editTxDate" required>
             </div>
             <input type="hidden" name="transactionId" id="editTransactionId">
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -141,9 +257,62 @@ const positionsController = {
           </form>
         </div>
       </div>
+
+      <div id="sellModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; padding: 1rem; overflow-y: auto;">
+        <div style="position: relative; max-width: 500px; margin: 2rem auto; background: var(--bg-secondary); padding: 2rem; border-radius: 12px; border: 1px solid var(--border);">
+          <h3 style="margin-bottom: 1.5rem;">${appState.t('positions.sellTitle')}</h3>
+          <div id="sellInfo" style="background: var(--bg-tertiary); padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;"></div>
+          <form id="sellForm">
+            <div class="form-group">
+              <label>${appState.t('edit.quantity')}</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="number" step="any" name="quantity" id="sellQuantity" required style="flex: 1;">
+                <button type="button" id="sellMaxBtn" style="padding: 0.75rem 1rem; background: var(--bg-tertiary);">${appState.t('positions.max')}</button>
+              </div>
+              <small id="maxQuantity" style="color: var(--text-secondary);"></small>
+            </div>
+            <div class="form-group">
+              <label>${appState.t('edit.pricePerUnit')}</label>
+              <input type="number" step="0.01" name="pricePerUnit" id="sellPrice" placeholder="${appState.t('add.pricePlaceholder')}">
+            </div>
+            <div class="form-group">
+              <label>${appState.t('positions.fees')}</label>
+              <input type="number" step="0.01" name="fees" id="sellFees" value="0">
+            </div>
+            <div class="form-group">
+              <label>${appState.t('positions.date')}</label>
+              <input type="datetime-local" name="date" id="sellDate" required>
+            </div>
+            <div id="profitPreview" style="background: var(--bg-tertiary); padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; display: none;"></div>
+            <input type="hidden" name="assetId" id="sellAssetId">
+            <input type="hidden" name="portfolioId" id="sellPortfolioId">
+            <input type="hidden" name="avgPrice" id="sellAvgPrice">
+            <input type="hidden" name="maxQty" id="sellMaxQty">
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+              <button type="submit" style="flex: 1; background: var(--warning);">${appState.t('positions.sell')}</button>
+              <button type="button" onclick="positionsController.closeSellModal()" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
+            </div>
+          </form>
+        </div>
+      </div>
     `;
 
     this.setupEventListeners();
+    
+    // Set filter and sort values
+    document.getElementById('filterType').value = this.filterType;
+    document.getElementById('sortBy').value = this.sortBy;
+    
+    // Add filter and sort listeners
+    document.getElementById('filterType').addEventListener('change', (e) => {
+      this.filterType = e.target.value;
+      this.render();
+    });
+    
+    document.getElementById('sortBy').addEventListener('change', (e) => {
+      this.sortBy = e.target.value;
+      this.render();
+    });
   },
 
   setupEventListeners() {
@@ -164,6 +333,55 @@ const positionsController = {
         } catch (error) {
           alert('Erreur: ' + error.message);
         }
+      });
+    }
+
+    const sellForm = document.getElementById('sellForm');
+    if (sellForm) {
+      document.getElementById('sellMaxBtn').addEventListener('click', () => {
+        const maxQty = document.getElementById('sellMaxQty').value;
+        document.getElementById('sellQuantity').value = maxQty;
+        this.updateProfitPreview();
+      });
+      
+      sellForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+        
+        const maxQty = parseFloat(data.maxQty);
+        const sellQty = parseFloat(data.quantity);
+        
+        if (sellQty > maxQty) {
+          alert(`${appState.t('positions.cannotSellMore')} ${maxQty}`);
+          return;
+        }
+        
+        try {
+          const scrollPos = window.scrollY;
+          await api.transactions.create({
+            portfolioId: data.portfolioId,
+            assetId: data.assetId,
+            type: 'sell',
+            quantity: sellQty,
+            pricePerUnit: data.pricePerUnit ? parseFloat(data.pricePerUnit) : undefined,
+            fees: parseFloat(data.fees) || 0,
+            date: data.date
+          });
+          await api.post('/sync', {});
+          this.closeSellModal();
+          await this.render();
+          window.scrollTo(0, scrollPos);
+        } catch (error) {
+          alert('Erreur: ' + error.message);
+        }
+      });
+      
+      document.getElementById('sellPrice').addEventListener('input', () => {
+        this.updateProfitPreview();
+      });
+      document.getElementById('sellQuantity').addEventListener('input', () => {
+        this.updateProfitPreview();
       });
     }
 
@@ -209,13 +427,61 @@ const positionsController = {
     document.getElementById('editTransactionModal').style.display = 'none';
   },
 
+  sellPosition(holdingId, assetId, assetName, assetSymbol, quantity, avgPrice, portfolioId) {
+    document.getElementById('sellAssetId').value = assetId;
+    document.getElementById('sellPortfolioId').value = portfolioId;
+    document.getElementById('sellAvgPrice').value = avgPrice;
+    document.getElementById('sellMaxQty').value = quantity;
+    document.getElementById('sellQuantity').max = quantity;
+    document.getElementById('maxQuantity').textContent = `Max: ${parseFloat(quantity)} ${assetSymbol}`;
+    
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('sellDate').value = now.toISOString().slice(0, 16);
+    
+    document.getElementById('sellInfo').innerHTML = `
+      <strong>${assetName} (${assetSymbol})</strong><br/>
+      ${appState.t('dashboard.quantity')}: ${parseFloat(quantity)}<br/>
+      ${appState.t('dashboard.avgPrice')}: ${appState.formatCurrency(parseFloat(avgPrice))}
+    `;
+    
+    document.getElementById('sellModal').style.display = 'block';
+  },
+
+  closeSellModal() {
+    document.getElementById('sellModal').style.display = 'none';
+  },
+
+  updateProfitPreview() {
+    const quantity = parseFloat(document.getElementById('sellQuantity').value) || 0;
+    const sellPrice = parseFloat(document.getElementById('sellPrice').value) || 0;
+    const avgPrice = parseFloat(document.getElementById('sellAvgPrice').value) || 0;
+    const fees = parseFloat(document.getElementById('sellFees').value) || 0;
+    
+    if (quantity > 0 && sellPrice > 0) {
+      const revenue = quantity * sellPrice - fees;
+      const cost = quantity * avgPrice;
+      const profit = revenue - cost;
+      const profitPercent = cost > 0 ? (profit / cost * 100) : 0;
+      
+      const profitDiv = document.getElementById('profitPreview');
+      profitDiv.style.display = 'block';
+      profitDiv.innerHTML = `
+        <strong>${appState.t('positions.realizedProfit')}:</strong><br/>
+        <span class="${profit >= 0 ? 'positive' : 'negative'}" style="font-size: 1.2rem;">
+          ${appState.formatCurrency(profit)} (${profitPercent.toFixed(2)}%)
+        </span>
+      `;
+    }
+  },
+
   editTransaction(id, type, quantity, pricePerUnit, fees, date) {
     document.getElementById('editTransactionId').value = id;
     document.getElementById('editTxType').value = type;
     document.getElementById('editTxQuantity').value = quantity;
     document.getElementById('editTxPrice').value = pricePerUnit;
     document.getElementById('editTxFees').value = fees;
-    document.getElementById('editTxDate').value = date.split('T')[0];
+    document.getElementById('editTxDate').value = date.split('.')[0].slice(0, 16);
     document.getElementById('editTransactionModal').style.display = 'block';
   },
 

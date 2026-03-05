@@ -54,7 +54,7 @@ const addController = {
             </div>
             <div class="form-group">
               <label>${appState.t('add.date')}</label>
-              <input type="datetime-local" name="date" required>
+              <input type="datetime-local" name="date" id="addAssetDate" required>
             </div>
             <div class="form-group">
               <label>${appState.t('add.price')}</label>
@@ -128,6 +128,11 @@ const addController = {
 
     this.setupEventListeners();
     this.loadWallets();
+    
+    // Set default date/time to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('addAssetDate').value = now.toISOString().slice(0, 16);
   },
 
   setupEventListeners() {

@@ -24,17 +24,27 @@ router.post('/sync', async (req, res) => {
           portfolioId: tx.portfolioId,
           assetId: tx.assetId,
           quantity: 0,
-          totalCost: 0
+          totalCost: 0,
+          avgPrice: 0
         });
       }
 
       const holding = holdingsMap.get(key);
 
       if (tx.type === 'buy') {
-        holding.totalCost += parseFloat(tx.quantity) * parseFloat(tx.pricePerUnit);
-        holding.quantity += parseFloat(tx.quantity);
+        const newQuantity = holding.quantity + parseFloat(tx.quantity);
+        const newTotalCost = holding.totalCost + (parseFloat(tx.quantity) * parseFloat(tx.pricePerUnit));
+        holding.quantity = newQuantity;
+        holding.totalCost = newTotalCost;
+        holding.avgPrice = newTotalCost / newQuantity;
       } else if (tx.type === 'sell') {
-        holding.quantity -= parseFloat(tx.quantity);
+        // When selling, reduce quantity but keep the same average price
+        // Only sell if we have something to sell
+        if (holding.quantity > 0 && holding.avgPrice > 0) {
+          const soldCost = parseFloat(tx.quantity) * holding.avgPrice;
+          holding.quantity -= parseFloat(tx.quantity);
+          holding.totalCost -= soldCost;
+        }
       }
     }
 
@@ -46,7 +56,7 @@ router.post('/sync', async (req, res) => {
             portfolioId: data.portfolioId,
             assetId: data.assetId,
             quantity: data.quantity,
-            avgPrice: data.totalCost / data.quantity
+            avgPrice: data.avgPrice
           }
         });
       }

@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const { initializeVapidKeys } = require('./services/pushService');
 const { startWalletSyncJob } = require('./jobs/walletSync');
+const { startDailyPriceJob } = require('./jobs/priceSnapshot');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ app.use('/api/wallets', require('./routes/wallets'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/history', require('./routes/history'));
 app.use('/api', require('./routes/sync'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/cache'));
@@ -41,6 +43,7 @@ async function start() {
   try {
     await initializeVapidKeys();
     startWalletSyncJob();
+    startDailyPriceJob();
     
     app.listen(PORT, () => {
       console.log(`Portfolio Tracker running on port ${PORT}`);
