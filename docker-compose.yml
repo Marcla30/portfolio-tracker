@@ -11,7 +11,7 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U portfolio"]
+      test: ["CMD-SHELL", "pg_isready -U portfolio -d portfolio_tracker"]
       interval: 10s
       timeout: 5s
       retries: 5
