@@ -1,8 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
+
+function signToken(userId) {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '90d' });
+}
 
 // Public config
 router.get('/config', (req, res) => {
@@ -41,7 +46,7 @@ router.post('/register', async (req, res) => {
     req.session.userId = user.id;
     req.session.username = user.username;
     
-    res.json({ id: user.id, username: user.username, name: user.name });
+    res.json({ id: user.id, username: user.username, name: user.name, token: signToken(user.id) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -64,8 +69,8 @@ router.post('/login', async (req, res) => {
     
     req.session.userId = user.id;
     req.session.username = user.username;
-    
-    res.json({ id: user.id, username: user.username, name: user.name });
+
+    res.json({ id: user.id, username: user.username, name: user.name, token: signToken(user.id) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
