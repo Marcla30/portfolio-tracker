@@ -92,7 +92,7 @@ const statsController = {
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                       <div style="width: 12px; height: 12px; border-radius: 3px; background: ${color};"></div>
-                      <span style="font-weight: 600; text-transform: capitalize;">${type}</span>
+                      <span style="font-weight: 600;">${appState.typeLabel(type)}</span>
                     </div>
                     <span style="font-size: 1.1rem; font-weight: bold;">${percent}%</span>
                   </div>
@@ -127,7 +127,7 @@ const statsController = {
                   <td>
                     <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
                       <span style="width: 10px; height: 10px; border-radius: 2px; background: ${color}; display: inline-block; flex-shrink: 0;"></span>
-                      <span style="text-transform: capitalize;">${type}</span>
+                      <span>${appState.typeLabel(type)}</span>
                     </span>
                   </td>
                   <td>${appState.formatCurrency(cat.value)}</td>
@@ -182,7 +182,7 @@ const statsController = {
               <div style="font-size: ${i === 0 ? '1.5rem' : '1.1rem'}; font-weight: bold; color: ${RANK_COLORS[i]}; width: 2rem; text-align: center; flex-shrink: 0;">#${i + 1}</div>
               <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 600; font-size: ${i === 0 ? '1.1rem' : '1rem'};">${h.asset.symbol} <span style="color: var(--text-secondary); font-weight: 400; font-size: 0.85rem;">${h.asset.name}</span></div>
-                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.1rem; text-transform: capitalize;">${h.asset.type}</div>
+                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.1rem;">${appState.typeLabel(h.asset.type)}</div>
               </div>
               <div style="text-align: right; flex-shrink: 0;">
                 <div style="font-weight: 600;">${appState.formatCurrency(h.currentValue)}</div>
@@ -239,7 +239,7 @@ const statsController = {
       new Chart(allocCtx, {
         type: 'doughnut',
         data: {
-          labels: Object.keys(byType).map(t => t.charAt(0).toUpperCase() + t.slice(1)),
+          labels: Object.keys(byType).map(t => appState.typeLabel(t)),
           datasets: [{
             data: Object.values(byType),
             backgroundColor: COLORS,

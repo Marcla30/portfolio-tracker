@@ -443,6 +443,20 @@ const appState = {
     };
     return translations[this.language]?.[key] || key;
   },
+
+  typeLabel(type) {
+    const map = {
+      crypto: 'add.typeCrypto',
+      stock: 'add.typeStock',
+      etf: 'add.typeEtf',
+      metal: 'add.typeMetal',
+      cash: 'add.typeCash',
+      other: 'add.typeOther',
+      cs2skin: 'add.typeCs2skin'
+    };
+    const key = map[type];
+    return key ? this.t(key) : (type.charAt(0).toUpperCase() + type.slice(1));
+  },
   
   formatCurrency(value, decimals = 2) {
     const symbols = { 
