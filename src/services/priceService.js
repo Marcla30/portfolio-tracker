@@ -12,6 +12,10 @@ const exchangeRateCache = new Map();
 const EXCHANGE_RATE_TTL = 30 * 60 * 1000;
 // Per-skin CSFloat price cache (same TTL as other assets)
 const cs2SkinPriceCache = new Map();
+// CSFloat rate limiter: tracks when the next request is allowed
+// JS is single-threaded so read+update is atomic (no race condition)
+let csFloatNextAllowed = 0;
+const CSFLOAT_MIN_INTERVAL = 1000; // ms between requests → max 60 req/min
 
 async function getCurrentPrice(asset, currency = 'EUR', force = false) {
   if (!force) {
@@ -212,14 +216,20 @@ async function getMetalPrice(symbol, currency = 'EUR') {
 
 async function getCS2SkinPrice(marketHashName, currency = 'EUR') {
   const cacheKey = `${marketHashName}-${currency}`;
-  const now = Date.now();
+  const nowCheck = Date.now();
   const cached = cs2SkinPriceCache.get(cacheKey);
-  if (cached && (now - cached.fetchedAt) < CACHE_DURATION) return cached.price;
+  if (cached && (nowCheck - cached.fetchedAt) < CACHE_DURATION) return cached.price;
 
   if (!process.env.CSFLOAT_API_KEY) {
     console.warn('CSFLOAT_API_KEY not set — CS2 skin price = 0');
     return 0;
   }
+
+  // Rate limiting: space out CSFloat requests to avoid 429
+  // These two lines are atomic in JS's single-threaded event loop
+  const delay = Math.max(0, csFloatNextAllowed - Date.now());
+  csFloatNextAllowed = Math.max(csFloatNextAllowed, Date.now()) + CSFLOAT_MIN_INTERVAL;
+  if (delay > 0) await new Promise(r => setTimeout(r, delay));
 
   try {
     // Fetch current lowest listing from CSFloat — price is returned in cents (USD)
@@ -235,7 +245,7 @@ async function getCS2SkinPrice(marketHashName, currency = 'EUR') {
     const rate = await getExchangeRate('USD', currency);
     const price = priceUsd * rate;
 
-    if (price > 0) cs2SkinPriceCache.set(cacheKey, { price, fetchedAt: now });
+    if (price > 0) cs2SkinPriceCache.set(cacheKey, { price, fetchedAt: Date.now() });
     return price;
   } catch (error) {
     console.error(`Error fetching CS2 skin price for "${marketHashName}":`, error.message);
