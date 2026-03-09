@@ -10,12 +10,13 @@ const metalPriceCache = new Map();
 // Exchange rate in-memory cache (30 min TTL — Frankfurter updates daily so this is fine)
 const exchangeRateCache = new Map();
 const EXCHANGE_RATE_TTL = 30 * 60 * 1000;
-// Per-skin CSFloat price cache (same TTL as other assets)
+// CS2 skin prices: one bulk fetch for ALL items, cached in memory
+// Source: CSGOTrader community price list (free, no API key, updated regularly)
+const CS2_BULK_URL = 'https://prices.csgotrader.com/latest/prices_v6.json';
+let cs2BulkPricesMap = null;   // Map<marketHashName, priceUSD>
+let cs2BulkFetchedAt = 0;
+// Per-skin result cache (after conversion to target currency)
 const cs2SkinPriceCache = new Map();
-// CSFloat rate limiter: tracks when the next request is allowed
-// JS is single-threaded so read+update is atomic (no race condition)
-let csFloatNextAllowed = 0;
-const CSFLOAT_MIN_INTERVAL = 1000; // ms between requests → max 60 req/min
 
 async function getCurrentPrice(asset, currency = 'EUR', force = false) {
   if (!force) {
@@ -214,45 +215,46 @@ async function getMetalPrice(symbol, currency = 'EUR') {
   }
 }
 
+// Fetch the full CS2 price list in one request, build a lookup Map
+async function fetchCS2BulkPrices() {
+  const now = Date.now();
+  if (cs2BulkPricesMap && (now - cs2BulkFetchedAt) < CACHE_DURATION) {
+    return cs2BulkPricesMap;
+  }
+  console.log('[CS2] Fetching bulk price list...');
+  const res = await axios.get(CS2_BULK_URL, { timeout: 30000 });
+  const data = res.data;
+  cs2BulkPricesMap = new Map();
+  for (const [name, prices] of Object.entries(data)) {
+    // Prefer 24h Steam price, fall back to 7d
+    const usd = prices?.steam?.last_24h || prices?.steam?.last_7d || 0;
+    if (usd > 0) cs2BulkPricesMap.set(name, usd);
+  }
+  cs2BulkFetchedAt = now;
+  console.log(`[CS2] Bulk prices loaded: ${cs2BulkPricesMap.size} items`);
+  return cs2BulkPricesMap;
+}
+
 async function getCS2SkinPrice(marketHashName, currency = 'EUR') {
   const cacheKey = `${marketHashName}-${currency}`;
-  const nowCheck = Date.now();
+  const now = Date.now();
   const cached = cs2SkinPriceCache.get(cacheKey);
-  if (cached && (nowCheck - cached.fetchedAt) < CACHE_DURATION) return cached.price;
-
-  if (!process.env.CSFLOAT_API_KEY) {
-    console.warn('CSFLOAT_API_KEY not set — CS2 skin price = 0');
-    return 0;
-  }
-
-  // Rate limiting: space out CSFloat requests to avoid 429
-  // These two lines are atomic in JS's single-threaded event loop
-  const delay = Math.max(0, csFloatNextAllowed - Date.now());
-  csFloatNextAllowed = Math.max(csFloatNextAllowed, Date.now()) + CSFLOAT_MIN_INTERVAL;
-  if (delay > 0) await new Promise(r => setTimeout(r, delay));
+  if (cached && (now - cached.fetchedAt) < CACHE_DURATION) return cached.price;
 
   try {
-    // Fetch current lowest listing from CSFloat — price is returned in cents (USD)
-    const res = await axios.get('https://csfloat.com/api/v1/listings', {
-      params: { market_hash_name: marketHashName, sort_by: 'price', order: 'asc', type: 0, limit: 1 },
-      headers: { Authorization: process.env.CSFLOAT_API_KEY },
-      timeout: 10000
-    });
-    const listing = res.data?.data?.[0];
-    if (!listing) return 0;
-
-    const priceUsd = listing.price / 100; // cents → USD
+    const bulkPrices = await fetchCS2BulkPrices();
+    const priceUsd = bulkPrices.get(marketHashName) || 0;
+    if (!priceUsd) {
+      console.warn(`[CS2] No price found for "${marketHashName}"`);
+      return 0;
+    }
     const rate = await getExchangeRate('USD', currency);
     const price = priceUsd * rate;
-
-    if (price > 0) cs2SkinPriceCache.set(cacheKey, { price, fetchedAt: Date.now() });
+    if (price > 0) cs2SkinPriceCache.set(cacheKey, { price, fetchedAt: now });
     return price;
   } catch (error) {
-    console.error(`Error fetching CS2 skin price for "${marketHashName}":`, error.message);
-    if (cached) {
-      console.warn(`Using expired memory cache for "${marketHashName}": ${cached.price}`);
-      return cached.price;
-    }
+    console.error(`[CS2] Error fetching bulk prices:`, error.message);
+    if (cached) return cached.price;
     return 0;
   }
 }
