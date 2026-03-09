@@ -52,27 +52,35 @@ async function resolveSteamId(profileUrl) {
  * Throws if inventory is private or empty
  */
 async function fetchSteamInventory(steamId64) {
+  const url = `${STEAM_INVENTORY_URL}/${steamId64}/730/2`;
+  console.log(`[CS2] Fetching inventory for Steam ID: ${steamId64}`);
+  console.log(`[CS2] URL: ${url}?l=english&count=75`);
+
   let res;
   try {
-    res = await axios.get(`${STEAM_INVENTORY_URL}/${steamId64}/730/2`, {
-      params: { l: 'english', count: 5000 },
+    res = await axios.get(url, {
+      params: { l: 'english', count: 75 },
       timeout: 15000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9'
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://steamcommunity.com/'
       }
     });
+    console.log(`[CS2] Steam response status: ${res.status}`);
   } catch (err) {
     const status = err.response?.status;
+    const body = err.response?.data;
+    console.error(`[CS2] Steam error ${status}:`, typeof body === 'string' ? body.slice(0, 200) : JSON.stringify(body));
     if (status === 403 || status === 401) {
       throw new Error('Steam inventory is private. Make sure your CS2 inventory is set to public in your Steam privacy settings.');
     }
     if (status === 400) {
-      throw new Error('Steam returned an error (400). The inventory may be private, the Steam ID may be invalid, or Steam is rate-limiting this request. Try again in a few seconds.');
+      throw new Error('Inventaire privé ou inaccessible (Steam 400). Vérifie que ton inventaire CS2 est bien en "Public" dans les paramètres de confidentialité Steam.');
     }
     if (status === 429) {
-      throw new Error('Steam is rate-limiting requests. Please wait a moment and try again.');
+      throw new Error('Steam rate-limit atteint. Réessaie dans quelques secondes.');
     }
     throw new Error(`Failed to fetch Steam inventory: ${err.message}`);
   }
