@@ -169,16 +169,18 @@ const positionsController = {
                     <div style="color: var(--text-secondary); margin-top: 0.25rem;">
                       <strong>${item.portfolioName}</strong>${quantity > 0 ? ` • ${quantity} × ${appState.formatCurrency(currentPrice)} = ${appState.formatCurrency(currentValue)}` : ` • ${appState.t('positions.soldOut')}`}
                     </div>
-                    ${quantity > 0 ? `<div style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.15rem;">${appState.t('dashboard.avgPrice')}: ${appState.formatCurrency(avgPrice)}</div>` : ''}
+                    ${quantity > 0 ? `<div style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.15rem;">${appState.language === 'fr' ? 'Coût' : 'Cost'}: ${quantity} × ${appState.formatCurrency(avgPrice)} = ${appState.formatCurrency(quantity * avgPrice)}</div>` : ''}
                   </div>
                 </div>
                 ${quantity > 0 ? `
                   <div style="text-align: right;">
-                    <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 1.5rem; font-weight: bold; line-height: 1.1;">
-                      ${appState.formatCurrency(pl)}
+                    <div style="display: inline-block; padding: 0.35rem 0.85rem; border-radius: 8px; background: ${pl >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)'}; border: 1px solid ${pl >= 0 ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}; margin-bottom: 0.3rem; width: 165px; text-align: center;">
+                      <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 1.25rem; font-weight: bold; line-height: 1.2;">
+                        ${pl >= 0 ? '+' : ''}${appState.formatCurrency(pl)}
+                      </div>
+                      <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 0.88rem; font-weight: 600;">${plPercent >= 0 ? '+' : ''}${plPercent.toFixed(2)}%</div>
                     </div>
-                    <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 0.95rem; font-weight: 600; margin-top: 0.1rem;">${plPercent.toFixed(2)}%</div>
-                    <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.1rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
                   </div>
                   <div style="display: flex; gap: 0.5rem;" onclick="event.stopPropagation();">
                     <button onclick="positionsController.sellPosition('${h.id}', '${item.assetId}', '${item.asset.name}', '${item.asset.symbol}', ${quantity}, ${avgPrice}, '${item.portfolioId}')" style="background: var(--warning);">${appState.t('positions.sell')}</button>
