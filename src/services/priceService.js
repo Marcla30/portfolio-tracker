@@ -5,6 +5,11 @@ const prisma = new PrismaClient();
 const CACHE_DURATION = 35 * 60 * 1000; // 35 min — slightly more than the 30-min snapshot interval
 // Per-coin in-memory cache: cacheKey -> { price, fetchedAt }
 const cryptoPriceCache = new Map();
+// Per-metal in-memory cache (same TTL as crypto)
+const metalPriceCache = new Map();
+// Exchange rate in-memory cache (30 min TTL — Frankfurter updates daily so this is fine)
+const exchangeRateCache = new Map();
+const EXCHANGE_RATE_TTL = 30 * 60 * 1000;
 
 async function getCurrentPrice(asset, currency = 'EUR', force = false) {
   if (!force) {
@@ -167,55 +172,65 @@ async function getStockPrice(symbol, currency = 'EUR') {
 }
 
 async function getMetalPrice(symbol, currency = 'EUR') {
+  const cacheKey = `${symbol.toUpperCase()}-${currency}`;
+  const now = Date.now();
+
+  // In-memory cache check
+  const cached = metalPriceCache.get(cacheKey);
+  if (cached && (now - cached.fetchedAt) < CACHE_DURATION) {
+    return cached.price;
+  }
+
   try {
-    const metalMap = {
-      'XAU': 'XAU',
-      'XAG': 'XAG'
-    };
-    
-    const metalSymbol = metalMap[symbol.toUpperCase()];
-    if (!metalSymbol) return 0;
-    
-    // Using gold-api.com free endpoint
+    const metalSymbol = symbol.toUpperCase();
+    if (metalSymbol !== 'XAU' && metalSymbol !== 'XAG') return 0;
+
     const response = await axios.get(`https://api.gold-api.com/price/${metalSymbol}`);
-    
     let price = response.data.price || 0;
-    
+
     // Price is in USD per troy ounce, convert to requested currency
     if (currency !== 'USD' && price > 0) {
       const rate = await getExchangeRate('USD', currency);
       price *= rate;
     }
-    
+
+    if (price > 0) {
+      metalPriceCache.set(cacheKey, { price, fetchedAt: now });
+    }
+
     return price;
   } catch (error) {
     console.error(`Error fetching metal price for ${symbol}:`, error.message);
-    // Fallback to approximate prices in USD
-    const fallbackPrices = {
-      'XAU': 5080,
-      'XAG': 62
-    };
-    let price = fallbackPrices[symbol.toUpperCase()] || 0;
-    
-    if (currency !== 'USD' && price > 0) {
-      const rate = await getExchangeRate('USD', currency);
-      price *= rate;
+    // Use expired in-memory cache if available (better than a hardcoded stale value)
+    if (cached) {
+      console.warn(`Using expired memory cache for ${symbol}: ${cached.price}`);
+      return cached.price;
     }
-    
-    return price;
+    return 0;
   }
 }
 
 async function getExchangeRate(from, to) {
   if (from === to) return 1;
-  
+
+  const cacheKey = `${from}-${to}`;
+  const now = Date.now();
+  const cached = exchangeRateCache.get(cacheKey);
+  if (cached && (now - cached.fetchedAt) < EXCHANGE_RATE_TTL) {
+    return cached.rate;
+  }
+
   try {
     const response = await axios.get(`https://api.frankfurter.app/latest`, {
       params: { from, to }
     });
-    return response.data.rates[to] || 1;
+    const rate = response.data.rates[to] || 1;
+    exchangeRateCache.set(cacheKey, { rate, fetchedAt: now });
+    return rate;
   } catch (error) {
     console.error(`Error fetching exchange rate ${from}/${to}:`, error.message);
+    // Use expired cache if available
+    if (cached) return cached.rate;
     return 1;
   }
 }
