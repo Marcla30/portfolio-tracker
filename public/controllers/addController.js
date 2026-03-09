@@ -71,88 +71,118 @@ const addController = {
         <div id="walletForm" style="display: none;"></div>
 
         <div id="importForm" style="display: none;">
-          <div style="padding-bottom: 2rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border);">
+          <div style="padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border);">
             <h3>${appState.t('add.importHistoryTitle')}</h3>
             <div id="importHistory" style="max-height: 260px; overflow-y: auto; margin-top: 0.75rem;"></div>
           </div>
 
-          <div style="padding-bottom: 2rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border);">
-            <h3 style="margin-bottom: 0.5rem;">${appState.t('add.csvImportTitle')}</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">${appState.t('add.csvImportDesc')}</p>
-            <form id="importCsvForm">
-              <div class="form-group">
-                <label>${appState.t('add.csvFile')}</label>
-                <input type="file" id="csvFileInput" accept=".csv" required>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+
+            <!-- CSV -->
+            <div>
+              <button type="button" class="import-accordion-btn" data-target="importCsvPanel" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.95rem; text-align: left; color: var(--text-primary);">
+                <span>${appState.t('add.csvImportTitle')}</span>
+                <span class="accordion-arrow" style="font-size: 0.75rem; color: var(--text-secondary);">▶</span>
+              </button>
+              <div id="importCsvPanel" class="import-panel" style="display: none; padding: 1.25rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 0.25rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">${appState.t('add.csvImportDesc')}</p>
+                <form id="importCsvForm">
+                  <div class="form-group">
+                    <label>${appState.t('add.csvFile')}</label>
+                    <input type="file" id="csvFileInput" accept=".csv" required>
+                  </div>
+                  <button type="submit">${appState.t('add.csvImportButton')}</button>
+                </form>
+                <div id="csvImportStatus" style="margin-top: 1rem; font-size: 0.9rem;"></div>
               </div>
-              <button type="submit">${appState.t('add.csvImportButton')}</button>
-            </form>
-            <div id="csvImportStatus" style="margin-top: 1rem; font-size: 0.9rem;"></div>
+            </div>
+
+            <!-- Excel / Bourse Direct -->
+            <div>
+              <button type="button" class="import-accordion-btn" data-target="importExcelPanel" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.95rem; text-align: left; color: var(--text-primary);">
+                <span>${appState.t('add.importButton')}</span>
+                <span class="accordion-arrow" style="font-size: 0.75rem; color: var(--text-secondary);">▶</span>
+              </button>
+              <div id="importExcelPanel" class="import-panel" style="display: none; padding: 1.25rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 0.25rem;">
+                <form id="importExcelForm">
+                  <div class="form-group">
+                    <label>${appState.t('add.excelFile')}</label>
+                    <input type="file" name="file" accept=".xlsx,.xls" required>
+                  </div>
+                  <div class="form-group">
+                    <label>${appState.t('add.portfolio')}</label>
+                    <select name="portfolioId" required>
+                      ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                    </select>
+                  </div>
+                  <button type="submit">${appState.t('add.importButton')}</button>
+                </form>
+                <div id="importStatus" style="margin-top: 1rem; color: var(--text-secondary);"></div>
+              </div>
+            </div>
+
+            <!-- Wallet blockchain -->
+            <div>
+              <button type="button" class="import-accordion-btn" data-target="importWalletPanel" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.95rem; text-align: left; color: var(--text-primary);">
+                <span>${appState.t('add.wallet')}</span>
+                <span class="accordion-arrow" style="font-size: 0.75rem; color: var(--text-secondary);">▶</span>
+              </button>
+              <div id="importWalletPanel" class="import-panel" style="display: none; padding: 1.25rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 0.25rem;">
+                <form id="addWalletForm">
+                  <div class="form-group">
+                    <label>${appState.t('add.walletAddress')}</label>
+                    <input type="text" name="address" placeholder="${appState.t('add.walletAddressPlaceholder')}" required>
+                  </div>
+                  <div class="form-group">
+                    <label>${appState.t('add.blockchain')}</label>
+                    <select name="blockchain" required>
+                      <option value="bitcoin">Bitcoin (BTC)</option>
+                      <option value="ethereum">Ethereum (ETH)</option>
+                      <option value="bsc">Binance Smart Chain (BNB)</option>
+                      <option value="tron">Tron (TRX)</option>
+                      <option value="cosmos">Cosmos (ATOM)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>${appState.t('add.portfolio')}</label>
+                    <select name="portfolioId" required>
+                      ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                    </select>
+                  </div>
+                  <button type="submit">${appState.t('add.importTransactions')}</button>
+                </form>
+                <div id="walletStatus" style="margin-top: 1rem; color: var(--text-secondary);"></div>
+              </div>
+            </div>
+
+            <!-- CS2 / Steam -->
+            <div>
+              <button type="button" class="import-accordion-btn" data-target="importSteamPanel" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.95rem; text-align: left; color: var(--text-primary);">
+                <span>${appState.t('add.steam.title')}</span>
+                <span class="accordion-arrow" style="font-size: 0.75rem; color: var(--text-secondary);">▶</span>
+              </button>
+              <div id="importSteamPanel" class="import-panel" style="display: none; padding: 1.25rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 0.25rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">${appState.t('add.steam.desc')}</p>
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                  <input type="text" id="steamUrlInput" placeholder="${appState.t('add.steam.urlPlaceholder')}" style="flex: 1;">
+                  <button id="steamPreviewBtn" type="button">${appState.t('add.steam.preview')}</button>
+                </div>
+                <div id="steamPreviewResult" style="display: none;">
+                  <p id="steamPreviewCount" style="color: var(--text-secondary); margin-bottom: 0.75rem; font-size: 0.9rem;"></p>
+                  <div id="steamSkinsList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin-bottom: 1rem;"></div>
+                  <div class="form-group">
+                    <label>${appState.t('add.portfolio')}</label>
+                    <select id="steamPortfolioSelect">
+                      ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                    </select>
+                  </div>
+                  <button id="steamImportBtn" type="button">${appState.t('add.steam.importBtn')}</button>
+                </div>
+                <div id="steamStatus" style="margin-top: 1rem; color: var(--text-secondary);"></div>
+              </div>
+            </div>
+
           </div>
-
-          <form id="importExcelForm">
-            <div class="form-group">
-              <label>${appState.t('add.excelFile')}</label>
-              <input type="file" name="file" accept=".xlsx,.xls" required>
-            </div>
-            <div class="form-group">
-              <label>${appState.t('add.portfolio')}</label>
-              <select name="portfolioId" required>
-                ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-              </select>
-            </div>
-            <button type="submit">${appState.t('add.importButton')}</button>
-          </form>
-          <div id="importStatus" style="margin-top: 1rem; color: var(--text-secondary);"></div>
-
-          <div style="padding-top: 2rem; margin-top: 2rem; border-top: 1px solid var(--border);">
-            <h3 style="margin-bottom: 0.5rem;">${appState.t('add.wallet')}</h3>
-            <form id="addWalletForm">
-              <div class="form-group">
-                <label>${appState.t('add.walletAddress')}</label>
-                <input type="text" name="address" placeholder="${appState.t('add.walletAddressPlaceholder')}" required>
-              </div>
-              <div class="form-group">
-                <label>${appState.t('add.blockchain')}</label>
-                <select name="blockchain" required>
-                  <option value="bitcoin">Bitcoin (BTC)</option>
-                  <option value="ethereum">Ethereum (ETH)</option>
-                  <option value="bsc">Binance Smart Chain (BNB)</option>
-                  <option value="tron">Tron (TRX)</option>
-                  <option value="cosmos">Cosmos (ATOM)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>${appState.t('add.portfolio')}</label>
-                <select name="portfolioId" required>
-                  ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                </select>
-              </div>
-              <button type="submit">${appState.t('add.importTransactions')}</button>
-            </form>
-            <div id="walletStatus" style="margin-top: 1rem; color: var(--text-secondary);"></div>
-          </div>
-
-          <div style="padding-top: 2rem; margin-top: 2rem; border-top: 1px solid var(--border);">
-            <h3 style="margin-bottom: 0.5rem;">${appState.t('add.steam.title')}</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">${appState.t('add.steam.desc')}</p>
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-              <input type="text" id="steamUrlInput" placeholder="${appState.t('add.steam.urlPlaceholder')}" style="flex: 1;">
-              <button id="steamPreviewBtn" type="button">${appState.t('add.steam.preview')}</button>
-            </div>
-            <div id="steamPreviewResult" style="display: none;">
-              <p id="steamPreviewCount" style="color: var(--text-secondary); margin-bottom: 0.75rem; font-size: 0.9rem;"></p>
-              <div id="steamSkinsList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin-bottom: 1rem;"></div>
-              <div class="form-group">
-                <label>${appState.t('add.portfolio')}</label>
-                <select id="steamPortfolioSelect">
-                  ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                </select>
-              </div>
-              <button id="steamImportBtn" type="button">${appState.t('add.steam.importBtn')}</button>
-            </div>
-            <div id="steamStatus" style="margin-top: 1rem; color: var(--text-secondary);"></div>
-          </div>
-
         </div>
       </div>
 
@@ -299,6 +329,26 @@ const addController = {
       } catch (error) {
         status.innerHTML = 'Erreur: ' + error.message;
       }
+    });
+
+    document.querySelectorAll('.import-accordion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const panel = document.getElementById(targetId);
+        const isOpen = panel.style.display !== 'none';
+        // Close all panels
+        document.querySelectorAll('.import-panel').forEach(p => { p.style.display = 'none'; });
+        document.querySelectorAll('.import-accordion-btn').forEach(b => {
+          b.querySelector('.accordion-arrow').textContent = '▶';
+          b.style.borderRadius = '8px';
+        });
+        // Open clicked (if it was closed)
+        if (!isOpen) {
+          panel.style.display = 'block';
+          btn.querySelector('.accordion-arrow').textContent = '▼';
+          btn.style.borderRadius = '8px 8px 0 0';
+        }
+      });
     });
 
     document.getElementById('importCsvForm').addEventListener('submit', (e) => {
