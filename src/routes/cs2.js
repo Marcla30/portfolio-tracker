@@ -83,8 +83,8 @@ router.post('/import', async (req, res) => {
       }
       const price = priceUsd * rate;
 
-      // Skip skins below the minimum value threshold
-      if (price < minValue) {
+      // Skip skins below the minimum value threshold (total = unit price × quantity)
+      if (price * count < minValue) {
         results.belowMin++;
         continue;
       }
