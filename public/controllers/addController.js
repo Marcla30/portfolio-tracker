@@ -166,6 +166,10 @@ const addController = {
                   <p id="steamPreviewCount" style="color: var(--text-secondary); margin-bottom: 0.75rem; font-size: 0.9rem;"></p>
                   <div id="steamSkinsList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin-bottom: 1rem;"></div>
                   <div class="form-group">
+                    <label>${appState.t('add.steam.minValue')} (${appState.currency})</label>
+                    <input type="number" id="steamMinValue" value="1" min="0" step="0.1" style="width: 110px;">
+                  </div>
+                  <div class="form-group">
                     <label>${appState.t('add.portfolio')}</label>
                     <select id="steamPortfolioSelect">
                       ${portfolios.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
@@ -995,6 +999,7 @@ const addController = {
     const steamId = btn.dataset.steamId;
     const steamUrl = btn.dataset.steamUrl;
     const portfolioId = document.getElementById('steamPortfolioSelect').value;
+    const minValue = parseFloat(document.getElementById('steamMinValue').value) || 0;
 
     if (!steamId || !portfolioId) return;
 
@@ -1034,6 +1039,9 @@ const addController = {
               if (results.imported > 0) parts.push(`${results.imported} skin(s) importé(s)`);
               if (results.skipped > 0) parts.push(`${results.skipped} déjà présent(s)`);
               if (results.noPrice > 0) parts.push(`${results.noPrice} sans prix ignoré(s)`);
+              if (results.belowMin > 0) parts.push(lang
+                ? `${results.belowMin} < ${minValue} ${appState.currency} ignoré(s)`
+                : `${results.belowMin} below ${minValue} ${appState.currency} skipped`);
 
               if (results.imported === 0 && results.skipped > 0) {
                 status.style.color = 'var(--warning)';
@@ -1073,7 +1081,7 @@ const addController = {
 
     xhr.open('POST', '/api/cs2/import');
     xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(JSON.stringify({ steamId, steamUrl, portfolioId, currency: appState.currency }));
+    xhr.send(JSON.stringify({ steamId, steamUrl, portfolioId, currency: appState.currency, minValue }));
   },
 
   switchTab(tab) {

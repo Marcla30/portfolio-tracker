@@ -29,7 +29,7 @@ router.get('/preview', async (req, res) => {
 // Response: SSE stream of progress events
 router.post('/import', async (req, res) => {
   const userId = req.session.userId;
-  const { steamId, steamUrl, portfolioId, currency = 'EUR' } = req.body;
+  const { steamId, steamUrl, portfolioId, currency = 'EUR', minValue = 1 } = req.body;
 
   if (!steamId || !portfolioId) {
     return res.status(400).json({ error: 'Missing steamId or portfolioId' });
@@ -64,7 +64,7 @@ router.post('/import', async (req, res) => {
     const bulkPrices = await fetchCS2BulkPrices();
     const rate = await getExchangeRate('USD', currency);
 
-    const results = { imported: 0, skipped: 0, noPrice: 0 };
+    const results = { imported: 0, skipped: 0, noPrice: 0, belowMin: 0 };
     const importNotes = `Steam import:${steamId}`;
     const noPriceList = [];
 
@@ -82,6 +82,12 @@ router.post('/import', async (req, res) => {
         continue;
       }
       const price = priceUsd * rate;
+
+      // Skip skins below the minimum value threshold
+      if (price < minValue) {
+        results.belowMin++;
+        continue;
+      }
 
       // Find or create the Asset record
       let asset = await prisma.asset.findUnique({ where: { symbol: marketHashName } });
