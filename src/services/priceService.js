@@ -181,18 +181,14 @@ async function getMetalPrice(symbol, currency = 'EUR') {
     return cached.price;
   }
 
+  // Map to Yahoo Finance futures symbols (same source already used for stocks/ETFs)
+  const yahooSymbolMap = { 'XAU': 'GC=F', 'XAG': 'SI=F' };
+  const yahooSymbol = yahooSymbolMap[symbol.toUpperCase()];
+  if (!yahooSymbol) return 0;
+
   try {
-    const metalSymbol = symbol.toUpperCase();
-    if (metalSymbol !== 'XAU' && metalSymbol !== 'XAG') return 0;
-
-    const response = await axios.get(`https://api.gold-api.com/price/${metalSymbol}`);
-    let price = response.data.price || 0;
-
-    // Price is in USD per troy ounce, convert to requested currency
-    if (currency !== 'USD' && price > 0) {
-      const rate = await getExchangeRate('USD', currency);
-      price *= rate;
-    }
+    // Reuse getStockPrice — handles Yahoo Finance + currency conversion
+    const price = await getStockPrice(yahooSymbol, currency);
 
     if (price > 0) {
       metalPriceCache.set(cacheKey, { price, fetchedAt: now });
@@ -201,7 +197,6 @@ async function getMetalPrice(symbol, currency = 'EUR') {
     return price;
   } catch (error) {
     console.error(`Error fetching metal price for ${symbol}:`, error.message);
-    // Use expired in-memory cache if available (better than a hardcoded stale value)
     if (cached) {
       console.warn(`Using expired memory cache for ${symbol}: ${cached.price}`);
       return cached.price;
