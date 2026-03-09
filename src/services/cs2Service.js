@@ -23,26 +23,35 @@ async function resolveSteamId(profileUrl) {
   const vanityMatch = trimmed.match(/\/id\/([^/]+)/);
   if (vanityMatch) {
     const vanityName = vanityMatch[1];
-    if (!process.env.STEAM_API_KEY) {
-      throw new Error(
-        'Vanity URL detected but STEAM_API_KEY is not set. ' +
-        'Please use a direct profile URL (steamcommunity.com/profiles/76561...) ' +
-        'or set STEAM_API_KEY in your .env file.'
-      );
+
+    // Prefer STEAM_API_KEY if available, otherwise fall back to XML profile page
+    if (process.env.STEAM_API_KEY) {
+      const res = await axios.get(STEAM_VANITY_URL, {
+        params: { key: process.env.STEAM_API_KEY, vanityurl: vanityName },
+        timeout: 10000
+      });
+      const data = res.data?.response;
+      if (!data || data.success !== 1) {
+        throw new Error(`Could not resolve Steam vanity URL: ${vanityName}`);
+      }
+      return data.steamid;
     }
-    const res = await axios.get(STEAM_VANITY_URL, {
-      params: { key: process.env.STEAM_API_KEY, vanityurl: vanityName }
+
+    // No API key — use the public XML profile page (no key required)
+    const xmlRes = await axios.get(`https://steamcommunity.com/id/${vanityName}/?xml=1`, {
+      timeout: 10000
     });
-    const data = res.data?.response;
-    if (!data || data.success !== 1) {
-      throw new Error(`Could not resolve Steam vanity URL: ${vanityName}`);
+    const match = xmlRes.data?.match(/<steamID64>(\d+)<\/steamID64>/);
+    if (!match) {
+      throw new Error(`Profil Steam introuvable ou privé : "${vanityName}"`);
     }
-    return data.steamid;
+    return match[1];
   }
 
   throw new Error(
-    'Invalid Steam profile URL. Expected format: ' +
-    'https://steamcommunity.com/profiles/76561198XXXXXXXXX'
+    'URL Steam invalide. Formats acceptés :\n' +
+    'https://steamcommunity.com/profiles/76561198XXXXXXXXX\n' +
+    'https://steamcommunity.com/id/username'
   );
 }
 
