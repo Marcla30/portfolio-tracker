@@ -166,17 +166,19 @@ const positionsController = {
                   </div>
                   <div>
                     <h3 style="margin: 0;">${item.asset.name} (${item.asset.symbol})</h3>
-                    <div style="color: var(--text-secondary); margin-top: 0.5rem;">
-                      <strong>${item.portfolioName}</strong> • ${quantity > 0 ? `${quantity} × ${appState.formatCurrency(avgPrice)} = ${appState.formatCurrency(currentValue)}` : `${appState.t('positions.soldOut')}`}
+                    <div style="color: var(--text-secondary); margin-top: 0.25rem;">
+                      <strong>${item.portfolioName}</strong>${quantity > 0 ? ` • ${quantity} × ${appState.formatCurrency(currentPrice)} = ${appState.formatCurrency(currentValue)}` : ` • ${appState.t('positions.soldOut')}`}
                     </div>
+                    ${quantity > 0 ? `<div style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.15rem;">${appState.t('dashboard.avgPrice')}: ${appState.formatCurrency(avgPrice)}</div>` : ''}
                   </div>
                 </div>
                 ${quantity > 0 ? `
                   <div style="text-align: right;">
-                    <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 1.2rem; font-weight: bold;">
-                      ${appState.formatCurrency(pl)} (${plPercent.toFixed(2)}%)
+                    <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 1.5rem; font-weight: bold; line-height: 1.1;">
+                      ${appState.formatCurrency(pl)}
                     </div>
-                    <div style="color: var(--text-secondary); margin-top: 0.25rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
+                    <div class="${pl >= 0 ? 'positive' : 'negative'}" style="font-size: 0.95rem; font-weight: 600; margin-top: 0.1rem;">${plPercent.toFixed(2)}%</div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
                   </div>
                   <div style="display: flex; gap: 0.5rem;" onclick="event.stopPropagation();">
                     <button onclick="positionsController.sellPosition('${h.id}', '${item.assetId}', '${item.asset.name}', '${item.asset.symbol}', ${quantity}, ${avgPrice}, '${item.portfolioId}')" style="background: var(--warning);">${appState.t('positions.sell')}</button>
