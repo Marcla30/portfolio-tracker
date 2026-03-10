@@ -106,18 +106,12 @@ async function getStockHistoricalPrice(symbol, timestamp, currency) {
   }
 }
 
-// Metals - Daily data only (no intraday available for free)
+// Metals via Yahoo Finance futures (same source as current price in priceService)
 async function getMetalHistoricalPrice(symbol, timestamp, currency) {
-  try {
-    const date = new Date(timestamp * 1000).toISOString().split('T')[0];
-    
-    // Frankfurter doesn't support metals, use current price as fallback
-    console.log(`Metal historical prices not available for free, using current price`);
-    return 0;
-  } catch (error) {
-    console.error(`Metal historical price error:`, error.message);
-    return 0;
-  }
+  const yahooSymbolMap = { 'XAU': 'GC=F', 'XAG': 'SI=F' };
+  const yahooSymbol = yahooSymbolMap[symbol.toUpperCase()];
+  if (!yahooSymbol) return 0;
+  return await getStockHistoricalPrice(yahooSymbol, timestamp, currency);
 }
 
 async function getExchangeRate(from, to) {
