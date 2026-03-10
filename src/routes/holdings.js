@@ -72,6 +72,20 @@ router.put('/:id', async (req, res) => {
       data: updateData
     });
 
+    // If exactly 1 buy transaction, keep its pricePerUnit in sync with avgPrice
+    // so future syncs and CSV exports reflect the edited price
+    if (avgPrice !== undefined) {
+      const buyTxs = await prisma.transaction.findMany({
+        where: { portfolioId: currentHolding.portfolioId, assetId: currentHolding.assetId, type: 'buy' }
+      });
+      if (buyTxs.length === 1) {
+        await prisma.transaction.update({
+          where: { id: buyTxs[0].id },
+          data: { pricePerUnit: parseFloat(avgPrice) }
+        });
+      }
+    }
+
     if (portfolioId && portfolioId !== currentHolding.portfolioId) {
       await prisma.transaction.updateMany({
         where: {
