@@ -143,24 +143,46 @@ async function getChange24h(userId, currency = 'EUR', portfolioId = null) {
 
   if (holdings.length === 0) return null;
 
+  const assetIds = holdings.map(h => h.assetId);
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  let currentValue = 0;
-  let value24hAgo = 0;
-  let assetsWithHistory = 0;
+  const freshCutoff = new Date(Date.now() - 35 * 60 * 1000); // same as CACHE_DURATION
+
+  // Batch-fetch current and 24h-ago prices in 2 parallel queries instead of N sequential
+  const [freshRows, oldRows] = await Promise.all([
+    prisma.priceCache.findMany({
+      where: { assetId: { in: assetIds }, currency, timestamp: { gte: freshCutoff }, price: { gt: 0 } },
+      orderBy: { timestamp: 'desc' }
+    }),
+    prisma.priceCache.findMany({
+      where: { assetId: { in: assetIds }, currency, timestamp: { lte: cutoff }, price: { gt: 0 } },
+      orderBy: { timestamp: 'desc' }
+    })
+  ]);
+
+  // Build lookup maps — keep only the most recent entry per asset
+  const freshMap = new Map();
+  for (const c of freshRows) {
+    if (!freshMap.has(c.assetId)) freshMap.set(c.assetId, parseFloat(c.price));
+  }
+  const oldMap = new Map();
+  for (const c of oldRows) {
+    if (!oldMap.has(c.assetId)) oldMap.set(c.assetId, parseFloat(c.price));
+  }
+
+  let currentValue = 0, value24hAgo = 0, assetsWithHistory = 0;
   const perAsset = [];
 
   for (const h of holdings) {
     const qty = parseFloat(h.quantity);
-    const currentPrice = await getCurrentPrice(h.asset, currency);
+
+    // Use batch cache; fall back to live fetch only if not cached (rare)
+    let currentPrice = freshMap.get(h.assetId);
+    if (!currentPrice) currentPrice = await getCurrentPrice(h.asset, currency);
+
     currentValue += qty * currentPrice;
 
-    const cache24h = await prisma.priceCache.findFirst({
-      where: { assetId: h.assetId, currency, timestamp: { lte: cutoff } },
-      orderBy: { timestamp: 'desc' }
-    });
-
-    const price24h = cache24h ? parseFloat(cache24h.price) : currentPrice;
-    if (cache24h) {
+    const price24h = oldMap.get(h.assetId);
+    if (price24h) {
       value24hAgo += qty * price24h;
       assetsWithHistory++;
     } else {
@@ -173,11 +195,11 @@ async function getChange24h(userId, currency = 'EUR', portfolioId = null) {
       symbol: h.asset.symbol,
       type: h.asset.type,
       currentPrice,
-      price24h,
-      changePct: price24h > 0 ? ((currentPrice - price24h) / price24h * 100) : 0,
-      changeValue: qty * (currentPrice - price24h),
+      price24h: price24h || currentPrice,
+      changePct: price24h ? ((currentPrice - price24h) / price24h * 100) : 0,
+      changeValue: qty * (currentPrice - (price24h || currentPrice)),
       currentValue: qty * currentPrice,
-      hasHistory: !!cache24h
+      hasHistory: !!price24h
     });
   }
 

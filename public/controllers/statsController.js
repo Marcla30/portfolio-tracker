@@ -16,7 +16,8 @@ const statsController = {
     const portfolioId = this._portfolioFilter || null;
     const is24h = this._timeframe === '24h';
 
-    const portfolios = await api.portfolios.getAll();
+    try {
+      const portfolios = await api.portfolios.getAll();
     const holdings = await api.holdings.getAll(portfolioId, appState.currency || 'EUR');
 
     let recommendations, realizedGains, change24hData;
@@ -409,6 +410,10 @@ const statsController = {
           }
         }
       });
+    }
+    } catch (err) {
+      console.error('Stats render error:', err);
+      app.innerHTML = `<div class="card"><p style="color:var(--danger);">${appState.language === 'fr' ? 'Erreur lors du chargement des stats' : 'Error loading stats'}: ${err.message}</p></div>`;
     }
   }
 };
