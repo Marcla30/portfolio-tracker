@@ -119,12 +119,16 @@ model WalletAddress {
 }
 
 model SteamProfile {
-  id        String   @id @default(uuid())
-  userId    String
-  steamId   String   // Steam ID64 (17 digits)
-  steamUrl  String?  // Original URL provided by the user
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String
+  steamId     String
+  steamUrl    String?
+  portfolioId String?
+  currency    String   @default("EUR")
+  minValue    Float    @default(1)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([userId, steamId])
 }

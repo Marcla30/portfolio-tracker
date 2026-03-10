@@ -49,11 +49,11 @@ router.post('/import', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
-    // Save the Steam profile for future re-syncs
+    // Save the Steam profile for future re-syncs (persist portfolioId, currency, minValue)
     await prisma.steamProfile.upsert({
       where: { userId_steamId: { userId, steamId } },
-      create: { userId, steamId, steamUrl: steamUrl || null },
-      update: { steamUrl: steamUrl || null }
+      create: { userId, steamId, steamUrl: steamUrl || null, portfolioId, currency, minValue },
+      update: { steamUrl: steamUrl || null, portfolioId, currency, minValue }
     });
 
     // Fetch current inventory from Steam
@@ -169,6 +169,115 @@ router.post('/import', async (req, res) => {
     res.end();
   } catch (error) {
     console.error('CS2 import error:', error.message);
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end();
+  }
+});
+
+// GET /api/cs2/profiles
+// List all linked Steam profiles for current user
+router.get('/profiles', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const [profiles, portfolios] = await Promise.all([
+      prisma.steamProfile.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' } }),
+      prisma.portfolio.findMany({ where: { userId } })
+    ]);
+    const portfolioMap = Object.fromEntries(portfolios.map(p => [p.id, p.name]));
+    res.json(profiles.map(p => ({
+      ...p,
+      portfolioName: p.portfolioId ? (portfolioMap[p.portfolioId] || null) : null
+    })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/cs2/resync
+// Re-sync a linked Steam profile: detect new skins (delta) and import them
+// body: { steamId, portfolioId, currency, minValue }
+// Response: SSE stream of progress events
+router.post('/resync', async (req, res) => {
+  const userId = req.session.userId;
+  const { steamId, portfolioId, currency = 'EUR', minValue = 1 } = req.body;
+
+  if (!steamId || !portfolioId) {
+    return res.status(400).json({ error: 'Missing steamId or portfolioId' });
+  }
+
+  const portfolio = await prisma.portfolio.findFirst({ where: { id: portfolioId, userId } });
+  if (!portfolio) return res.status(403).json({ error: 'Portfolio not found or access denied' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  try {
+    // Persist updated params
+    await prisma.steamProfile.upsert({
+      where: { userId_steamId: { userId, steamId } },
+      create: { userId, steamId, portfolioId, currency, minValue },
+      update: { portfolioId, currency, minValue }
+    });
+
+    const skins = await fetchSteamInventory(steamId);
+    const total = skins.length;
+    const [bulkPrices, rate] = await Promise.all([
+      fetchCS2BulkPrices(),
+      getExchangeRate('USD', currency)
+    ]);
+
+    const results = { imported: 0, skipped: 0, belowMin: 0, noPrice: 0 };
+
+    for (let i = 0; i < skins.length; i++) {
+      const { marketHashName, count, iconUrl } = skins[i];
+      res.write(`data: ${JSON.stringify({ current: i + 1, total, skinName: marketHashName })}\n\n`);
+
+      const priceUsd = bulkPrices.get(marketHashName) || 0;
+      if (priceUsd === 0) { results.noPrice++; continue; }
+      const price = priceUsd * rate;
+
+      let asset = await prisma.asset.findUnique({ where: { symbol: marketHashName } });
+      if (!asset) {
+        asset = await prisma.asset.create({
+          data: { symbol: marketHashName, name: marketHashName, type: 'cs2skin', logoUrl: iconUrl || null }
+        });
+      }
+
+      // Compute delta: Steam inventory count vs current portfolio holding
+      const holding = await prisma.holding.findUnique({
+        where: { portfolioId_assetId: { portfolioId, assetId: asset.id } }
+      });
+      const holdingQty = holding ? parseFloat(holding.quantity) : 0;
+      const delta = count - holdingQty;
+
+      if (delta <= 0) { results.skipped++; continue; }
+      if (price * delta < minValue) { results.belowMin++; continue; }
+
+      await prisma.transaction.create({
+        data: {
+          portfolioId, assetId: asset.id, type: 'buy',
+          quantity: delta, pricePerUnit: price, fees: 0,
+          currency, date: new Date(),
+          notes: `Steam resync:${steamId}`
+        }
+      });
+
+      if (holding) {
+        const newQty = holdingQty + delta;
+        const newAvg = (holdingQty * parseFloat(holding.avgPrice) + delta * price) / newQty;
+        await prisma.holding.update({ where: { id: holding.id }, data: { quantity: newQty, avgPrice: newAvg } });
+      } else {
+        await prisma.holding.create({ data: { portfolioId, assetId: asset.id, quantity: delta, avgPrice: price, currency } });
+      }
+
+      results.imported++;
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true, results })}\n\n`);
+    res.end();
+  } catch (error) {
+    console.error('CS2 resync error:', error.message);
     res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
     res.end();
   }

@@ -157,6 +157,7 @@ const addController = {
                 <span class="accordion-arrow" style="font-size: 0.75rem; color: var(--text-secondary);">▶</span>
               </button>
               <div id="importSteamPanel" class="import-panel" style="display: none; padding: 1.25rem; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 0.25rem;">
+                <div id="steamProfilesList" style="margin-bottom: 1.25rem;"></div>
                 <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">${appState.t('add.steam.desc')}</p>
                 <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
                   <input type="text" id="steamUrlInput" placeholder="${appState.t('add.steam.urlPlaceholder')}" style="flex: 1;">
@@ -352,6 +353,7 @@ const addController = {
           panel.style.display = 'block';
           btn.querySelector('.accordion-arrow').textContent = '▼';
           btn.style.borderRadius = '8px 8px 0 0';
+          if (targetId === 'importSteamPanel') this.loadSteamProfiles();
         }
       });
     });
@@ -1082,6 +1084,130 @@ const addController = {
     xhr.open('POST', '/api/cs2/import');
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.send(JSON.stringify({ steamId, steamUrl, portfolioId, currency: appState.currency, minValue }));
+  },
+
+  async loadSteamProfiles() {
+    const container = document.getElementById('steamProfilesList');
+    if (!container) return;
+    try {
+      const profiles = await api.cs2.profiles();
+      if (!profiles.length) { container.innerHTML = ''; return; }
+      const lang = appState.language === 'fr';
+      container.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+          <h4 style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">${lang ? 'Profils liés' : 'Linked profiles'}</h4>
+          ${profiles.map(p => {
+            const lastSync = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString(lang ? 'fr-FR' : 'en-US') : '—';
+            return `
+              <div style="padding: 0.65rem 0.75rem; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 0.5rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+                  <span style="color: var(--text-secondary); font-size: 0.82rem; font-family: monospace;">${p.steamId}</span>
+                  <div style="display: flex; gap: 0.75rem; flex: 1; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-secondary);">
+                    ${p.portfolioName ? `<span>📁 ${p.portfolioName}</span>` : ''}
+                    <span>Min: ${appState.formatCurrencyPlain(p.minValue)}</span>
+                    <span>${lang ? 'Sync:' : 'Sync:'} ${lastSync}</span>
+                  </div>
+                  <button onclick="addController.showResyncForm('${p.steamId}', '${p.portfolioId || ''}', ${p.minValue})" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer;">↻ Re-sync</button>
+                </div>
+                <div id="resync-form-${p.steamId}" style="display: none; margin-top: 0.75rem;"></div>
+              </div>`;
+          }).join('')}
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border); margin-bottom: 1.25rem;">
+      `;
+    } catch (e) { container.innerHTML = ''; }
+  },
+
+  async showResyncForm(steamId, defaultPortfolioId, defaultMinValue) {
+    const formDiv = document.getElementById(`resync-form-${steamId}`);
+    if (!formDiv) return;
+    if (formDiv.style.display !== 'none') { formDiv.style.display = 'none'; return; }
+    const portfolios = await api.portfolios.getAll();
+    const lang = appState.language === 'fr';
+    formDiv.style.display = 'block';
+    formDiv.innerHTML = `
+      <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end;">
+        <div>
+          <label style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Portfolio</label>
+          <select id="resync-portfolio-${steamId}" style="min-width: 130px;">
+            ${portfolios.map(p => `<option value="${p.id}" ${p.id === defaultPortfolioId ? 'selected' : ''}>${p.name}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">${lang ? 'Valeur min' : 'Min value'} (${appState.currency})</label>
+          <input type="number" id="resync-minvalue-${steamId}" value="${defaultMinValue}" min="0" step="0.1" style="width: 90px;">
+        </div>
+        <button onclick="addController.steamResync('${steamId}')" id="resync-btn-${steamId}" style="padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer;">
+          ${lang ? 'Lancer' : 'Start'}
+        </button>
+      </div>
+      <div id="resync-status-${steamId}" style="margin-top: 0.75rem;"></div>
+    `;
+  },
+
+  steamResync(steamId) {
+    const portfolioId = document.getElementById(`resync-portfolio-${steamId}`)?.value;
+    const minValue = parseFloat(document.getElementById(`resync-minvalue-${steamId}`)?.value) || 0;
+    const status = document.getElementById(`resync-status-${steamId}`);
+    const btn = document.getElementById(`resync-btn-${steamId}`);
+    if (!portfolioId || !status) return;
+    const lang = appState.language === 'fr';
+
+    btn.disabled = true;
+    status.innerHTML = `
+      <div style="background: var(--bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 0.5rem;">
+        <div id="resync-bar-${steamId}" style="background: var(--success); height: 100%; width: 0%; transition: width 0.3s;"></div>
+      </div>
+      <div id="resync-text-${steamId}" style="font-size: 0.82rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${lang ? 'Démarrage...' : 'Starting...'}</div>
+    `;
+
+    const xhr = new XMLHttpRequest();
+    let done = false;
+    xhr.addEventListener('readystatechange', () => {
+      if (xhr.readyState !== 3 && xhr.readyState !== 4) return;
+      const lines = xhr.responseText.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.substring(6));
+          if (data.current && data.total) {
+            const pct = Math.round((data.current / data.total) * 100);
+            const bar = document.getElementById(`resync-bar-${steamId}`);
+            const text = document.getElementById(`resync-text-${steamId}`);
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = `${data.current}/${data.total} — ${data.skinName}`;
+          }
+          if (data.done && !done) {
+            done = true;
+            const r = data.results;
+            const parts = [];
+            if (r.imported > 0) parts.push(lang ? `${r.imported} nouveau(x) importé(s)` : `${r.imported} new imported`);
+            if (r.skipped > 0) parts.push(lang ? `${r.skipped} déjà à jour` : `${r.skipped} already up to date`);
+            if (r.belowMin > 0) parts.push(lang ? `${r.belowMin} < min ignoré(s)` : `${r.belowMin} below min skipped`);
+            if (r.noPrice > 0) parts.push(lang ? `${r.noPrice} sans prix` : `${r.noPrice} no price`);
+            const bar = document.getElementById(`resync-bar-${steamId}`);
+            const text = document.getElementById(`resync-text-${steamId}`);
+            if (bar) bar.style.width = '100%';
+            if (text) {
+              text.textContent = parts.join(' · ') || (lang ? 'Aucun changement' : 'No changes');
+              text.style.color = r.imported > 0 ? 'var(--success)' : 'var(--text-secondary)';
+            }
+            this.loadImportHistory();
+            this.loadSteamProfiles();
+            if (r.imported > 0) setTimeout(() => navigate('/'), 2000);
+            else btn.disabled = false;
+          }
+          if (data.error) {
+            const text = document.getElementById(`resync-text-${steamId}`);
+            if (text) { text.textContent = 'Erreur: ' + data.error; text.style.color = 'var(--danger)'; }
+            btn.disabled = false;
+          }
+        } catch (e) {}
+      }
+    });
+    xhr.open('POST', '/api/cs2/resync');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({ steamId, portfolioId, currency: appState.currency, minValue }));
   },
 
   switchTab(tab) {

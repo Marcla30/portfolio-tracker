@@ -82,6 +82,7 @@ const api = {
 
   cs2: {
     preview: (url) => api.get(`/cs2/preview?url=${encodeURIComponent(url)}`),
-    import: (data) => api.post('/cs2/import', data)
+    import: (data) => api.post('/cs2/import', data),
+    profiles: () => api.get('/cs2/profiles')
   }
 };
