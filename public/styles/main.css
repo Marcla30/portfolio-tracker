@@ -83,6 +83,23 @@ body {
   font-weight: 500;
 }
 
+.nav-privacy {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav-privacy:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.nav-privacy.active { color: var(--accent); border-color: var(--accent); }
+
+.private-amount { transition: filter 0.2s ease; }
+body.privacy-mode .private-amount { filter: blur(7px); user-select: none; }
+
 #app {
   max-width: 1400px;
   margin: 0 auto;
@@ -436,6 +453,17 @@ table button {
     border-radius: 0;
     color: var(--danger);
     text-align: left;
+    font-size: 1rem;
+  }
+
+  .nav-privacy {
+    margin-left: 0;
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    justify-content: flex-start;
     font-size: 1rem;
   }
 

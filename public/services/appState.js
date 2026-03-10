@@ -1,12 +1,15 @@
 const appState = {
   currency: 'EUR',
   language: 'fr',
-  
+  privacyMode: false,
+
   async init() {
     const settings = await api.settings.get();
     this.currency = settings.defaultCurrency;
     this.language = settings.language;
     this.applyTheme(settings.theme || 'blue');
+    this.privacyMode = localStorage.getItem('privacyMode') === 'true';
+    if (this.privacyMode) document.body.classList.add('privacy-mode');
   },
   
   applyTheme(theme) {
@@ -465,20 +468,20 @@ const appState = {
   },
   
   formatCurrency(value, decimals = 2) {
-    const symbols = { 
-      EUR: '€', 
-      USD: '$', 
-      GBP: '£', 
-      CHF: 'CHF', 
-      JPY: '¥', 
-      CAD: 'CA$', 
-      AUD: 'A$', 
-      CNY: '¥' 
+    const symbols = {
+      EUR: '€',
+      USD: '$',
+      GBP: '£',
+      CHF: 'CHF',
+      JPY: '¥',
+      CAD: 'CA$',
+      AUD: 'A$',
+      CNY: '¥'
     };
     const symbol = symbols[this.currency] || this.currency;
     const [intPart, decPart] = value.toFixed(decimals).split('.');
     const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
     const formatted = decimals > 0 ? `${grouped}.${decPart}` : grouped;
-    return `${symbol}${formatted}`;
+    return `<span class="private-amount">${symbol}${formatted}</span>`;
   }
 };
