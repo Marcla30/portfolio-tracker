@@ -1,5 +1,6 @@
 const positionsController = {
   filterType: 'all',
+  filterPortfolio: 'all',
   sortBy: 'value',
   searchQuery: '',
   _assetsWithTransactions: null,
@@ -77,11 +78,12 @@ const positionsController = {
     const items = Array.from(this._assetsWithTransactions.values())
       .filter(item => {
         const matchType = this.filterType === 'all' || item.asset.type === this.filterType;
+        const matchPortfolio = this.filterPortfolio === 'all' || item.portfolioId === this.filterPortfolio;
         const matchSearch = !this.searchQuery ||
           item.asset.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           item.asset.symbol.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           item.portfolioName.toLowerCase().includes(this.searchQuery.toLowerCase());
-        return matchType && matchSearch;
+        return matchType && matchPortfolio && matchSearch;
       })
       .sort((a, b) => {
         const aHolding = a.holding;
@@ -113,6 +115,10 @@ const positionsController = {
           <h2 style="margin: 0;">${appState.t('positions.title')}</h2>
           <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
             <input type="text" id="searchPositions" placeholder="${appState.language === 'fr' ? 'Rechercher...' : 'Search...'}" style="width: 200px;" value="${this.searchQuery}">
+            <select id="filterPortfolio" style="width: auto;">
+              <option value="all">${appState.language === 'fr' ? 'Tous les portefeuilles' : 'All portfolios'}</option>
+              ${(this._portfolios || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+            </select>
             <select id="filterType" style="width: auto;">
               <option value="all">${appState.t('positions.filterAll')}</option>
               <option value="crypto">${appState.t('add.typeCrypto')}</option>
@@ -383,6 +389,7 @@ const positionsController = {
 
     // Restore filter and sort state
     document.getElementById('filterType').value = this.filterType;
+    document.getElementById('filterPortfolio').value = this.filterPortfolio;
     document.getElementById('sortBy').value = this.sortBy;
 
     // Search: re-filter from cache, no API call
@@ -407,6 +414,12 @@ const positionsController = {
     // Filter/sort: re-render from cache, no API call
     document.getElementById('filterType').addEventListener('change', (e) => {
       this.filterType = e.target.value;
+      this._visibleCount = 50;
+      this._buildList();
+    });
+
+    document.getElementById('filterPortfolio').addEventListener('change', (e) => {
+      this.filterPortfolio = e.target.value;
       this._visibleCount = 50;
       this._buildList();
     });
