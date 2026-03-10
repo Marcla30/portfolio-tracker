@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { resolveSteamId, fetchSteamInventory } = require('../services/cs2Service');
+const { resolveSteamId, fetchSteamInventory, fetchSteamProfileName } = require('../services/cs2Service');
 const { fetchCS2BulkPrices, getExchangeRate } = require('../services/priceService');
 
 const prisma = new PrismaClient();
@@ -50,10 +50,11 @@ router.post('/import', async (req, res) => {
 
   try {
     // Save the Steam profile for future re-syncs (persist portfolioId, currency, minValue)
+    const profileName = await fetchSteamProfileName(steamId);
     await prisma.steamProfile.upsert({
       where: { userId_steamId: { userId, steamId } },
-      create: { userId, steamId, steamUrl: steamUrl || null, portfolioId, currency, minValue },
-      update: { steamUrl: steamUrl || null, portfolioId, currency, minValue }
+      create: { userId, steamId, steamUrl: steamUrl || null, profileName, portfolioId, currency, minValue },
+      update: { steamUrl: steamUrl || null, profileName, portfolioId, currency, minValue }
     });
 
     // Fetch current inventory from Steam
@@ -214,10 +215,11 @@ router.post('/resync', async (req, res) => {
 
   try {
     // Persist updated params
+    const profileName = await fetchSteamProfileName(steamId);
     await prisma.steamProfile.upsert({
       where: { userId_steamId: { userId, steamId } },
-      create: { userId, steamId, portfolioId, currency, minValue },
-      update: { portfolioId, currency, minValue }
+      create: { userId, steamId, portfolioId, currency, minValue, profileName },
+      update: { portfolioId, currency, minValue, profileName }
     });
 
     const skins = await fetchSteamInventory(steamId);

@@ -156,4 +156,14 @@ async function fetchSteamInventory(steamId64) {
   return skins;
 }
 
-module.exports = { resolveSteamId, fetchSteamInventory };
+async function fetchSteamProfileName(steamId64) {
+  try {
+    const res = await axios.get(`https://steamcommunity.com/profiles/${steamId64}/?xml=1`, { timeout: 8000 });
+    const match = res.data?.match(/<steamID><!\[CDATA\[(.+?)\]\]><\/steamID>/);
+    return match ? match[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+module.exports = { resolveSteamId, fetchSteamInventory, fetchSteamProfileName };

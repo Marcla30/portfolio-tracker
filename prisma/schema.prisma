@@ -123,6 +123,7 @@ model SteamProfile {
   userId      String
   steamId     String
   steamUrl    String?
+  profileName String?
   portfolioId String?
   currency    String   @default("EUR")
   minValue    Float    @default(1)

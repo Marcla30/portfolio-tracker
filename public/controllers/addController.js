@@ -1101,7 +1101,10 @@ const addController = {
             return `
               <div style="padding: 0.65rem 0.75rem; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 0.5rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-                  <span style="color: var(--text-secondary); font-size: 0.82rem; font-family: monospace;">${p.steamId}</span>
+                  <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                    ${p.profileName ? `<span style="font-size: 0.88rem; font-weight: 500;">${p.profileName}</span>` : ''}
+                    <span style="color: var(--text-secondary); font-size: 0.78rem; font-family: monospace;">${p.steamId}</span>
+                  </div>
                   <div style="display: flex; gap: 0.75rem; flex: 1; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-secondary);">
                     ${p.portfolioName ? `<span>📁 ${p.portfolioName}</span>` : ''}
                     <span>Min: ${appState.formatCurrencyPlain(p.minValue)}</span>
