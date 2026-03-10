@@ -605,6 +605,13 @@ const positionsController = {
     document.getElementById('addTxDate').value = now.toISOString().slice(0, 16);
 
     document.getElementById('addTransactionModal').style.display = 'block';
+
+    // Auto-fill current price in background
+    api.assets.getPrice(assetId, appState.currency).then(data => {
+      if (data?.price > 0) {
+        document.getElementById('addTxPrice').value = data.price;
+      }
+    }).catch(() => {});
   },
 
   closeAddTransactionModal() {
