@@ -21,11 +21,8 @@ router.get('/', async (req, res) => {
 
 router.put('/', async (req, res) => {
   try {
-    const settings = await prisma.settings.findUnique({
-      where: { userId: req.session.userId }
-    });
     const updated = await prisma.settings.update({
-      where: { id: settings.id },
+      where: { userId: req.session.userId },
       data: req.body
     });
     res.json(updated);

@@ -5,8 +5,8 @@ const prisma = new PrismaClient();
 
 router.get('/vapid-public-key', async (req, res) => {
   try {
-    const settings = await prisma.settings.findFirst();
-    res.json({ publicKey: settings.vapidPublicKey });
+    const settings = await prisma.settings.findUnique({ where: { userId: req.session.userId } });
+    res.json({ publicKey: settings?.vapidPublicKey });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -14,15 +14,13 @@ router.get('/vapid-public-key', async (req, res) => {
 
 router.post('/subscribe', async (req, res) => {
   try {
-    const settings = await prisma.settings.findFirst();
-    const subscriptions = settings.pushSubscriptions ? JSON.parse(settings.pushSubscriptions) : [];
+    const settings = await prisma.settings.findUnique({ where: { userId: req.session.userId } });
+    const subscriptions = settings?.pushSubscriptions ? JSON.parse(settings.pushSubscriptions) : [];
     subscriptions.push(req.body);
-    
     await prisma.settings.update({
-      where: { id: settings.id },
+      where: { userId: req.session.userId },
       data: { pushSubscriptions: JSON.stringify(subscriptions) }
     });
-    
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

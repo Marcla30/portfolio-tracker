@@ -76,7 +76,9 @@ router.put('/:id', async (req, res) => {
     // so future syncs and CSV exports reflect the edited price
     if (avgPrice !== undefined) {
       const buyTxs = await prisma.transaction.findMany({
-        where: { portfolioId: currentHolding.portfolioId, assetId: currentHolding.assetId, type: 'buy' }
+        where: { portfolioId: currentHolding.portfolioId, assetId: currentHolding.assetId, type: 'buy' },
+        select: { id: true },
+        take: 2
       });
       if (buyTxs.length === 1) {
         await prisma.transaction.update({
@@ -107,8 +109,7 @@ router.delete('/:id', async (req, res) => {
     const portfolioIds = await getUserPortfolioIds(req.session.userId);
 
     const holding = await prisma.holding.findUnique({
-      where: { id: req.params.id },
-      include: { asset: true }
+      where: { id: req.params.id }
     });
 
     if (!holding || !portfolioIds.includes(holding.portfolioId)) {

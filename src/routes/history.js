@@ -7,23 +7,28 @@ router.get('/', async (req, res) => {
   try {
     const { portfolioId, timeframe = '30d', currency = 'EUR' } = req.query;
 
+    // Auth check: verify portfolio ownership
+    if (portfolioId) {
+      const portfolio = await prisma.portfolio.findFirst({
+        where: { id: portfolioId, userId: req.session.userId },
+        select: { id: true }
+      });
+      if (!portfolio) return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const userPortfolios = await prisma.portfolio.findMany({
       where: { userId: req.session.userId },
       select: { id: true }
     });
     const portfolioIds = userPortfolios.map(p => p.id);
-
-    let where = { portfolioId: { in: portfolioIds } };
-    if (portfolioId) {
-      if (!portfolioIds.includes(portfolioId)) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-      where = { portfolioId };
-    }
+    const where = portfolioId ? { portfolioId } : { portfolioId: { in: portfolioIds } };
 
     const transactions = await prisma.transaction.findMany({
       where,
-      include: { asset: true },
+      select: {
+        assetId: true, type: true, quantity: true, date: true,
+        asset: { select: { id: true, symbol: true, type: true } }
+      },
       orderBy: { date: 'asc' }
     });
 
@@ -31,44 +36,70 @@ router.get('/', async (req, res) => {
       return res.json({ labels: [], data: [] });
     }
 
-    // Get timeframe range
     const now = new Date();
     const startDate = getStartDate(timeframe);
-    
-    // Calculate portfolio value at different points in time
     const dataPoints = getDataPoints(timeframe);
+
+    // Pre-load ALL price cache entries for relevant assets in ONE query
+    // Extend the range by 7 days back to cover the 7-day lookback window
+    const assetIds = [...new Set(transactions.map(t => t.assetId))];
+    const allCachedPrices = await prisma.priceCache.findMany({
+      where: {
+        assetId: { in: assetIds },
+        currency,
+        timestamp: {
+          gte: new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000),
+          lte: now
+        }
+      },
+      select: { assetId: true, price: true, timestamp: true },
+      orderBy: { timestamp: 'desc' }
+    });
+
+    // Build in-memory map: assetId -> sorted array of { timestamp, price }
+    const priceMap = new Map();
+    for (const p of allCachedPrices) {
+      if (!priceMap.has(p.assetId)) priceMap.set(p.assetId, []);
+      priceMap.get(p.assetId).push({ timestamp: p.timestamp, price: parseFloat(p.price) });
+    }
+
+    // Synchronous price lookup — no DB calls in the loop
+    function getCachedPrice(assetId, date) {
+      const prices = priceMap.get(assetId);
+      if (!prices) return null;
+      const cutoff = new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return prices.find(p => p.timestamp <= date && p.timestamp >= cutoff)?.price ?? null;
+    }
+
+    // Fallback: latest available price for an asset (for the current point)
+    function getLatestCachedPrice(assetId) {
+      const prices = priceMap.get(assetId);
+      return prices?.[0]?.price ?? 0;
+    }
+
     const labels = [];
     const data = [];
 
     for (let i = 0; i <= dataPoints; i++) {
       const pointDate = new Date(startDate.getTime() + (now - startDate) * i / dataPoints);
-      
-      // Get all transactions up to this point
+
       const txUpToPoint = transactions.filter(t => new Date(t.date) <= pointDate);
-      
-      // Calculate holdings at this point
+
       const holdings = {};
       for (const tx of txUpToPoint) {
-        if (!holdings[tx.assetId]) {
-          holdings[tx.assetId] = { quantity: 0, asset: tx.asset };
-        }
-        
-        if (tx.type === 'buy') {
-          holdings[tx.assetId].quantity += parseFloat(tx.quantity);
-        } else if (tx.type === 'sell') {
-          holdings[tx.assetId].quantity -= parseFloat(tx.quantity);
-        }
+        if (!holdings[tx.assetId]) holdings[tx.assetId] = { quantity: 0, asset: tx.asset };
+        if (tx.type === 'buy')  holdings[tx.assetId].quantity += parseFloat(tx.quantity);
+        else if (tx.type === 'sell') holdings[tx.assetId].quantity -= parseFloat(tx.quantity);
       }
-      
-      // Calculate total value at this point using historical prices
+
       let totalValue = 0;
       for (const assetId in holdings) {
         if (holdings[assetId].quantity > 0) {
-          const price = await getHistoricalPrice(holdings[assetId].asset, pointDate, currency);
+          const price = getCachedPrice(assetId, pointDate) ?? getLatestCachedPrice(assetId);
           totalValue += holdings[assetId].quantity * price;
         }
       }
-      
+
       labels.push(formatLabel(pointDate, timeframe));
       data.push(totalValue);
     }
@@ -80,52 +111,22 @@ router.get('/', async (req, res) => {
   }
 });
 
-async function getHistoricalPrice(asset, date, currency) {
-  try {
-    // Try to find cached price closest to the date
-    const cachedPrice = await prisma.priceCache.findFirst({
-      where: {
-        assetId: asset.id,
-        currency,
-        timestamp: {
-          lte: date,
-          gte: new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000) // Within 7 days
-        }
-      },
-      orderBy: { timestamp: 'desc' }
-    });
-    
-    if (cachedPrice) {
-      return parseFloat(cachedPrice.price);
-    }
-    
-    // Fallback to current price if no historical data
-    const { getCurrentPrice } = require('../services/priceService');
-    return await getCurrentPrice(asset, currency);
-  } catch (error) {
-    console.error(`Error getting historical price for ${asset.symbol}:`, error.message);
-    return 0;
-  }
-}
-
 function getStartDate(timeframe) {
   const now = new Date();
   switch (timeframe) {
     case '24h': return new Date(now - 24 * 60 * 60 * 1000);
-    case '7d': return new Date(now - 7 * 24 * 60 * 60 * 1000);
+    case '7d':  return new Date(now - 7 * 24 * 60 * 60 * 1000);
     case '30d': return new Date(now - 30 * 24 * 60 * 60 * 1000);
-    case '1y': return new Date(now - 365 * 24 * 60 * 60 * 1000);
+    case '1y':  return new Date(now - 365 * 24 * 60 * 60 * 1000);
     case 'all': return new Date(now - 730 * 24 * 60 * 60 * 1000);
-    default: return new Date(now - 30 * 24 * 60 * 60 * 1000);
+    default:    return new Date(now - 30 * 24 * 60 * 60 * 1000);
   }
 }
 
 function getCronIntervalMinutes() {
   const expr = (process.env.PRICE_SNAPSHOT_INTERVAL || '*/30 * * * *').trim();
-  // */N * * * *  → every N minutes
   const everyN = expr.match(/^\*\/(\d+)\s/);
   if (everyN) return parseInt(everyN[1]);
-  // 0 * * * *  → every hour
   if (/^0\s+\*/.test(expr)) return 60;
   return 30;
 }
@@ -133,11 +134,11 @@ function getCronIntervalMinutes() {
 function getDataPoints(timeframe) {
   switch (timeframe) {
     case '24h': return Math.round(24 * 60 / getCronIntervalMinutes());
-    case '7d': return 14;
+    case '7d':  return 14;
     case '30d': return 30;
-    case '1y': return 52;
+    case '1y':  return 52;
     case 'all': return 100;
-    default: return 30;
+    default:    return 30;
   }
 }
 

@@ -25,10 +25,15 @@ router.get('/', async (req, res) => {
     }
     if (req.query.assetId) where.assetId = req.query.assetId;
 
+    const take = Math.min(parseInt(req.query.limit) || 500, 1000);
+    const skip = parseInt(req.query.offset) || 0;
+
     const transactions = await prisma.transaction.findMany({
       where,
       include: { asset: true, portfolio: true },
-      orderBy: { date: 'desc' }
+      orderBy: { date: 'desc' },
+      take,
+      skip
     });
     res.json(transactions);
   } catch (error) {

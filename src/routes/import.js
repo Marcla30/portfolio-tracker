@@ -55,6 +55,20 @@ router.post('/import-excel', upload.single('file'), async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const total = data.length;
 
+    // Pre-validate all Yahoo Finance symbols in parallel (avoid N sequential HTTP calls)
+    const uniqueSymbols = [...new Set(
+      data.map(row => isinToSymbol[row['ISIN']]).filter(Boolean)
+    )];
+    const priceCheckResults = await Promise.allSettled(
+      uniqueSymbols.map(sym => axios.get(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}`))
+    );
+    const validSymbols = new Set(
+      uniqueSymbols.filter((_, i) => {
+        const r = priceCheckResults[i];
+        return r.status === 'fulfilled' && r.value.data?.chart?.result?.[0]?.meta?.regularMarketPrice > 0;
+      })
+    );
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       try {
@@ -62,7 +76,7 @@ router.post('/import-excel', upload.single('file'), async (req, res) => {
         const name = row['Nom'];
         const quantity = parseFloat(row['Quantité']);
         const pru = parseFloat(row['PRU (EUR)']);
-        
+
         if (!isin || !name || !quantity || !pru) {
           results.errors.push(`Ligne ignorée: ${name || 'inconnu'} - données manquantes`);
           res.write(`data: ${JSON.stringify({ progress: Math.round(((i + 1) / total) * 100), current: i + 1, total })}\n\n`);
@@ -76,45 +90,23 @@ router.post('/import-excel', upload.single('file'), async (req, res) => {
           continue;
         }
 
-        let type = 'stock';
-        if (name.includes('ETF') || name.includes('UCITS')) {
-          type = 'etf';
-        }
-
-        let asset = await prisma.asset.findFirst({ where: { symbol } });
-        
-        if (!asset) {
-          asset = await prisma.asset.create({
-            data: { symbol, name, type }
-          });
-        }
-
-        try {
-          const priceTest = await axios.get(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`);
-          const price = priceTest.data.chart.result[0].meta.regularMarketPrice;
-          
-          if (!price || price === 0) {
-            results.ignored.push(`${name} (${symbol}) - Prix non disponible sur Yahoo Finance`);
-            res.write(`data: ${JSON.stringify({ progress: Math.round(((i + 1) / total) * 100), current: i + 1, total })}\n\n`);
-            continue;
-          }
-        } catch (e) {
-          results.ignored.push(`${name} (${symbol}) - Erreur API: ${e.message}`);
+        if (!validSymbols.has(symbol)) {
+          results.ignored.push(`${name} (${symbol}) - Prix non disponible sur Yahoo Finance`);
           res.write(`data: ${JSON.stringify({ progress: Math.round(((i + 1) / total) * 100), current: i + 1, total })}\n\n`);
           continue;
         }
 
+        let type = 'stock';
+        if (name.includes('ETF') || name.includes('UCITS')) type = 'etf';
+
+        // findUnique (not findFirst) since symbol is @unique
+        let asset = await prisma.asset.findUnique({ where: { symbol } });
+        if (!asset) {
+          asset = await prisma.asset.create({ data: { symbol, name, type } });
+        }
+
         await prisma.transaction.create({
-          data: {
-            portfolioId,
-            assetId: asset.id,
-            type: 'buy',
-            quantity,
-            pricePerUnit: pru,
-            date: new Date(today),
-            fees: 0,
-            currency: 'EUR'
-          }
+          data: { portfolioId, assetId: asset.id, type: 'buy', quantity, pricePerUnit: pru, date: new Date(today), fees: 0, currency: 'EUR' }
         });
 
         results.success++;

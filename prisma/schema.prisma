@@ -32,6 +32,8 @@ model Portfolio {
   holdings    Holding[]
   transactions Transaction[] @relation("PortfolioTransactions")
   wallets     WalletAddress[]
+
+  @@index([userId])
 }
 
 model Asset {
@@ -154,7 +156,7 @@ model PriceCache {
   timestamp   DateTime  @default(now())
   asset       Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([assetId, timestamp])
+  @@index([assetId, currency, timestamp])
 }
 
 model Settings {
@@ -185,4 +187,7 @@ model ImportHistory {
   ignoredAssets   Json
   errors          Json
   createdAt       DateTime @default(now())
+
+  @@index([portfolioId])
+  @@index([createdAt(sort: Desc)])
 }
