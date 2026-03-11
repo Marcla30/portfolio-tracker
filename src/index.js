@@ -12,6 +12,9 @@ const { requireAuth } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust reverse proxy (nginx etc.) so req.secure reflects X-Forwarded-Proto: https
+app.set('trust proxy', 1);
+
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(session({
