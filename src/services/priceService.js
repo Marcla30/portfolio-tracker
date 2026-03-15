@@ -184,15 +184,61 @@ const YAHOO_HEADERS = {
   'Referer': 'https://finance.yahoo.com/',
 };
 
-async function fetchYahooChart(symbol) {
+// Yahoo Finance crumb authentication — required to avoid IP-based blocks on datacenter IPs.
+// Flow: 1) get session cookie from fc.yahoo.com, 2) exchange for crumb, 3) pass crumb in every chart request.
+let _yahooCrumb = null;
+let _yahooCookie = null;
+let _yahooCrumbFetchedAt = 0;
+const CRUMB_TTL = 60 * 60 * 1000; // renew hourly
+
+async function getYahooAuth() {
+  const now = Date.now();
+  if (_yahooCrumb && (now - _yahooCrumbFetchedAt) < CRUMB_TTL) {
+    return { crumb: _yahooCrumb, cookie: _yahooCookie };
+  }
+  // Step 1: consent cookie
+  const cookieRes = await axios.get('https://fc.yahoo.com', {
+    headers: YAHOO_HEADERS, timeout: 10000, maxRedirects: 5, validateStatus: () => true
+  });
+  const setCookies = cookieRes.headers['set-cookie'] || [];
+  _yahooCookie = setCookies.map(c => c.split(';')[0]).join('; ');
+
+  // Step 2: crumb
+  const crumbRes = await axios.get('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+    headers: { ...YAHOO_HEADERS, Cookie: _yahooCookie },
+    timeout: 10000
+  });
+  _yahooCrumb = typeof crumbRes.data === 'string' ? crumbRes.data.trim() : '';
+  _yahooCrumbFetchedAt = now;
+  console.log(`[Yahoo] Crumb refreshed (${_yahooCrumb ? 'ok' : 'empty'})`);
+  return { crumb: _yahooCrumb, cookie: _yahooCookie };
+}
+
+// Fetch Yahoo Finance chart data with crumb auth + query2 fallback.
+// Accepts optional extra query params (e.g. period1/period2 for historical).
+async function fetchYahooChart(symbol, extraParams = {}) {
+  let crumb = '', cookie = '';
+  try {
+    const auth = await getYahooAuth();
+    crumb = auth.crumb;
+    cookie = auth.cookie;
+  } catch (e) {
+    console.warn('[Yahoo] Could not obtain crumb, proceeding without:', e.message);
+  }
+
+  const headers = cookie ? { ...YAHOO_HEADERS, Cookie: cookie } : YAHOO_HEADERS;
+  const params = crumb ? { ...extraParams, crumb } : extraParams;
+
   const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
   const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}`;
   try {
-    const r = await axios.get(url1, { headers: YAHOO_HEADERS, timeout: 10000 });
+    const r = await axios.get(url1, { headers, params, timeout: 10000 });
     return r.data;
   } catch (e1) {
     console.warn(`[Yahoo] query1 failed for ${symbol} (${e1.response?.status ?? e1.message}), trying query2...`);
-    const r = await axios.get(url2, { headers: YAHOO_HEADERS, timeout: 10000 });
+    // If 401, crumb may be stale — force renewal on next call
+    if (e1.response?.status === 401) _yahooCrumbFetchedAt = 0;
+    const r = await axios.get(url2, { headers, params, timeout: 10000 });
     return r.data;
   }
 }
@@ -353,19 +399,9 @@ async function getStockHistoricalPrice(symbol, date, currency) {
   try {
     const timestamp = Math.floor(new Date(date).getTime() / 1000);
     const now = Math.floor(Date.now() / 1000);
-    const params = { period1: timestamp - 86400, period2: Math.min(timestamp + 86400, now), interval: '1d' };
-    const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-    const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}`;
-
-    let data;
-    try {
-      const r = await axios.get(url1, { params, headers: YAHOO_HEADERS, timeout: 10000 });
-      data = r.data;
-    } catch (e1) {
-      console.warn(`[Yahoo] query1 historical failed for ${symbol} (${e1.response?.status ?? e1.message}), trying query2...`);
-      const r = await axios.get(url2, { params, headers: YAHOO_HEADERS, timeout: 10000 });
-      data = r.data;
-    }
+    const data = await fetchYahooChart(symbol, {
+      period1: timestamp - 86400, period2: Math.min(timestamp + 86400, now), interval: '1d'
+    });
     const result = data.chart.result?.[0];
     if (!result) return 0;
     const quotes = result.indicators.quote[0];
