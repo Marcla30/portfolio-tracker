@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { fetchYahooChart } = require('./priceService');
 
 // Get historical price at specific date/time
 async function getHistoricalPrice(asset, datetime, currency = 'EUR') {
@@ -63,11 +64,8 @@ async function getStockHistoricalPrice(symbol, timestamp, currency) {
       now
     );
 
-    const response = await axios.get(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`, {
-      params: { period1, period2, interval }
-    });
-
-    const result = response.data.chart.result?.[0];
+    const data = await fetchYahooChart(symbol, { period1, period2, interval });
+    const result = data.chart.result?.[0];
     if (!result) return 0;
 
     const timestamps = result.timestamp || [];

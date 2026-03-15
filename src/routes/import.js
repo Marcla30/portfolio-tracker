@@ -3,6 +3,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
+const { fetchYahooChart } = require('../services/priceService');
 const router = express.Router();
 const prisma = new PrismaClient();
 
@@ -60,12 +61,12 @@ router.post('/import-excel', upload.single('file'), async (req, res) => {
       data.map(row => isinToSymbol[row['ISIN']]).filter(Boolean)
     )];
     const priceCheckResults = await Promise.allSettled(
-      uniqueSymbols.map(sym => axios.get(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}`))
+      uniqueSymbols.map(sym => fetchYahooChart(sym))
     );
     const validSymbols = new Set(
       uniqueSymbols.filter((_, i) => {
         const r = priceCheckResults[i];
-        return r.status === 'fulfilled' && r.value.data?.chart?.result?.[0]?.meta?.regularMarketPrice > 0;
+        return r.status === 'fulfilled' && r.value?.chart?.result?.[0]?.meta?.regularMarketPrice > 0;
       })
     );
 

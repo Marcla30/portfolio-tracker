@@ -455,5 +455,6 @@ module.exports = {
   prefetchCryptoPrices,
   getHistoricalPrice,
   getExchangeRate,
-  fetchCS2BulkPrices
+  fetchCS2BulkPrices,
+  fetchYahooChart
 };
