@@ -50,15 +50,21 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // Validate currency code format
+    const currencyCode = currency || 'EUR';
+    if (!/^[A-Z]{3}$/.test(currencyCode)) {
+      return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+    }
+
     const asset = await prisma.asset.findUnique({ where: { id: assetId } });
     let pricePerUnit = req.body.pricePerUnit;
 
     if (!pricePerUnit) {
-      pricePerUnit = await getHistoricalPrice(asset, new Date(date), currency || 'EUR');
+      pricePerUnit = await getHistoricalPrice(asset, new Date(date), currencyCode);
     }
 
     const transaction = await prisma.transaction.create({
-      data: { portfolioId, assetId, type, quantity, pricePerUnit, date: new Date(date), fees: fees || 0, currency: currency || 'EUR' }
+      data: { portfolioId, assetId, type, quantity, pricePerUnit, date: new Date(date), fees: fees || 0, currency: currencyCode }
     });
 
     await updateHolding(portfolioId, assetId, type, parseFloat(quantity), parseFloat(pricePerUnit));

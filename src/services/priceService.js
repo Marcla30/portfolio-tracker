@@ -2,6 +2,11 @@ const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Validate currency code is a valid 3-letter ISO code
+function validateCurrencyCode(code) {
+  return /^[A-Z]{3}$/.test(code);
+}
+
 const CACHE_DURATION = 35 * 60 * 1000; // 35 min — slightly more than the 30-min snapshot interval
 // Per-coin in-memory cache: cacheKey -> { price, fetchedAt }
 const cryptoPriceCache = new Map();
@@ -341,6 +346,11 @@ async function getCS2SkinPrice(marketHashName, currency = 'EUR') {
 }
 
 async function getExchangeRate(from, to) {
+  // Validate currency codes to prevent injection in error messages
+  if (!validateCurrencyCode(from) || !validateCurrencyCode(to)) {
+    throw new Error('Invalid currency code format');
+  }
+
   if (from === to) return 1;
 
   const cacheKey = `${from}-${to}`;

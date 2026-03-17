@@ -7,6 +7,11 @@ router.get('/', async (req, res) => {
   try {
     const { portfolioId, timeframe = '30d', currency = 'EUR' } = req.query;
 
+    // Validate currency code format
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+    }
+
     // Auth check: verify portfolio ownership
     if (portfolioId) {
       const portfolio = await prisma.portfolio.findFirst({

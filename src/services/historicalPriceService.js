@@ -1,6 +1,11 @@
 const axios = require('axios');
 const { fetchYahooChart } = require('./priceService');
 
+// Validate currency code is a valid 3-letter ISO code
+function validateCurrencyCode(code) {
+  return /^[A-Z]{3}$/.test(code);
+}
+
 // Get historical price at specific date/time
 async function getHistoricalPrice(asset, datetime, currency = 'EUR') {
   const timestamp = Math.floor(new Date(datetime).getTime() / 1000);
@@ -113,8 +118,13 @@ async function getMetalHistoricalPrice(symbol, timestamp, currency) {
 }
 
 async function getExchangeRate(from, to) {
+  // Validate currency codes to prevent injection in error messages
+  if (!validateCurrencyCode(from) || !validateCurrencyCode(to)) {
+    throw new Error('Invalid currency code format');
+  }
+
   if (from === to) return 1;
-  
+
   try {
     const response = await axios.get(`https://api.frankfurter.app/latest`, {
       params: { from, to }

@@ -27,6 +27,11 @@ router.post('/import', async (req, res) => {
 
   if (!steamId || !portfolioId) return res.status(400).json({ error: 'Missing steamId or portfolioId' });
 
+  // Validate currency code format (3 uppercase letters - ISO 4217)
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+  }
+
   const portfolio = await prisma.portfolio.findFirst({ where: { id: portfolioId, userId } });
   if (!portfolio) return res.status(403).json({ error: 'Portfolio not found or access denied' });
 
@@ -152,6 +157,11 @@ router.post('/resync', async (req, res) => {
   const { steamId, portfolioId, currency = 'EUR', minValue = 1 } = req.body;
 
   if (!steamId || !portfolioId) return res.status(400).json({ error: 'Missing steamId or portfolioId' });
+
+  // Validate currency code format (3 uppercase letters - ISO 4217)
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+  }
 
   const portfolio = await prisma.portfolio.findFirst({ where: { id: portfolioId, userId } });
   if (!portfolio) return res.status(403).json({ error: 'Portfolio not found or access denied' });

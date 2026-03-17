@@ -31,6 +31,11 @@ router.get('/', async (req, res) => {
 
     const currency = req.query.currency || 'EUR';
 
+    // Validate currency code format
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+    }
+
     // Batch-fetch all crypto prices in one request to avoid rate limiting
     await prefetchCryptoPrices(holdings.map(h => h.asset), currency);
 

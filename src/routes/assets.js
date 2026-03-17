@@ -37,8 +37,13 @@ router.post('/', async (req, res) => {
 
 router.get('/:id/price', async (req, res) => {
   try {
+    const currency = req.query.currency || 'EUR';
+    // Validate currency code format
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+    }
     const asset = await prisma.asset.findUnique({ where: { id: req.params.id } });
-    const price = await getCurrentPrice(asset, req.query.currency || 'EUR');
+    const price = await getCurrentPrice(asset, currency);
     res.json({ price });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -49,6 +54,10 @@ router.get('/:id/historical-price', async (req, res) => {
   try {
     const { date, currency = 'EUR' } = req.query;
     if (!date) return res.status(400).json({ error: 'date required' });
+    // Validate currency code format
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      return res.status(400).json({ error: 'Invalid currency code. Must be 3-letter ISO code (e.g. EUR, USD)' });
+    }
     const asset = await prisma.asset.findUnique({ where: { id: req.params.id } });
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
     const price = await getHistoricalPrice(asset, new Date(date), currency);
