@@ -4,6 +4,9 @@ const settingsController = {
     const settings = await api.settings.get();
     const portfolios = await api.portfolios.getAll();
 
+    // Store portfolios to avoid redundant API calls
+    this._portfolios = portfolios;
+
     app.innerHTML = `
       <div class="card">
         <h2>${appState.t('settings.title')}</h2>
@@ -114,8 +117,8 @@ const settingsController = {
     `;
 
     this.setupEventListeners();
-    this.loadPortfolios();
-    this.loadExportSection();
+    this.loadPortfolios(portfolios);
+    this.loadExportSection(portfolios);
   },
 
   setupEventListeners() {
@@ -149,21 +152,29 @@ const settingsController = {
       const formData = new FormData(e.target);
       await api.portfolios.create(Object.fromEntries(formData));
       e.target.reset();
-      this.loadPortfolios();
+      // Refetch portfolios after creation since the list changed
+      const portfolios = await api.portfolios.getAll();
+      this._portfolios = portfolios;
+      this.loadPortfolios(portfolios);
+      this.loadExportSection(portfolios);
     });
 
     document.getElementById('editPortfolioForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(e.target);
       const data = Object.fromEntries(formData);
-      
+
       try {
         await api.put(`/portfolios/${data.portfolioId}`, {
           name: data.name,
           type: data.type || null
         });
         this.closeModal();
-        this.loadPortfolios();
+        // Refetch portfolios after edit since the list changed
+        const portfolios = await api.portfolios.getAll();
+        this._portfolios = portfolios;
+        this.loadPortfolios(portfolios);
+        this.loadExportSection(portfolios);
       } catch (error) {
         alert('Erreur: ' + error.message);
       }
@@ -180,8 +191,8 @@ const settingsController = {
     document.getElementById('exportBtn').addEventListener('click', () => this.exportCSV());
   },
 
-  async loadPortfolios() {
-    const portfolios = await api.portfolios.getAll();
+  async loadPortfolios(portfolios) {
+    // Use passed portfolios instead of fetching again
     const div = document.getElementById('portfoliosList');
 
     if (portfolios.length === 0) {
@@ -230,12 +241,15 @@ const settingsController = {
   async deletePortfolio(id) {
     if (await appState.showConfirm('Supprimer le portefeuille', appState.t('settings.deleteConfirm'))) {
       await api.portfolios.delete(id);
-      this.loadPortfolios();
+      // Refetch portfolios after deletion since the list changed
+      const portfolios = await api.portfolios.getAll();
+      this._portfolios = portfolios;
+      this.loadPortfolios(portfolios);
     }
   },
 
-  async loadExportSection() {
-    const portfolios = await api.portfolios.getAll();
+  async loadExportSection(portfolios) {
+    // Use passed portfolios instead of fetching again
     const div = document.getElementById('exportPortfoliosList');
 
     if (portfolios.length === 0) {
