@@ -192,16 +192,16 @@ const positionsController = {
                     </div>
                     <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.1rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
                   </div>
-                  <div style="position: relative;" onclick="event.stopPropagation();" data-menu>
-                    <button onclick="positionsController.toggleMenu('${key}')" data-menu data-menu-key="${key}" style="background: var(--bg-secondary); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 8px; font-size: 1.3rem; padding: 0; cursor: pointer; color: var(--text-secondary);">⋮</button>
-                    <div id="menu-${key}" data-menu style="display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; min-width: 170px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); overflow: hidden;">
-                      <button class="menu-item" data-menu onclick="positionsController.addTransaction('${item.assetId}', '${item.portfolioId}', '${item.asset.name.replace(/'/g, "\\'")}', '${item.asset.symbol.replace(/'/g, "\\'")}')" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:#4ade80;font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>＋</span>${appState.t('positions.addTransaction')}</button>
-                      <button class="menu-item" data-menu onclick="positionsController.sellPosition('${h.id}', '${item.assetId}', '${item.asset.name}', '${item.asset.symbol}', ${quantity}, ${avgPrice}, '${item.portfolioId}', ${item.asset.type === 'cs2skin' ? parseFloat(currentPrice.toFixed(2)) : currentPrice})" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--warning);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>↓</span>${appState.t('positions.sell')}</button>
+                  <div style="position: relative;" data-menu>
+                    <button class="menu-toggle-btn" data-menu-key="${key.replace(/"/g, '&quot;')}" data-menu style="background: var(--bg-secondary); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 8px; font-size: 1.3rem; padding: 0; cursor: pointer; color: var(--text-secondary);">⋮</button>
+                    <div id="menu-${key.replace(/"/g, '&quot;')}" data-menu style="display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; min-width: 170px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); overflow: hidden;">
+                      <button class="menu-item add-transaction-btn" data-asset-id="${item.assetId.replace(/"/g, '&quot;')}" data-portfolio-id="${item.portfolioId.replace(/"/g, '&quot;')}" data-asset-name="${item.asset.name.replace(/"/g, '&quot;')}" data-asset-symbol="${item.asset.symbol.replace(/"/g, '&quot;')}" data-menu style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:#4ade80;font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>＋</span>${appState.t('positions.addTransaction')}</button>
+                      <button class="menu-item sell-position-btn" data-holding-id="${h.id.replace(/"/g, '&quot;')}" data-asset-id="${item.assetId.replace(/"/g, '&quot;')}" data-asset-name="${item.asset.name.replace(/"/g, '&quot;')}" data-asset-symbol="${item.asset.symbol.replace(/"/g, '&quot;')}" data-quantity="${quantity}" data-avg-price="${avgPrice}" data-portfolio-id="${item.portfolioId.replace(/"/g, '&quot;')}" data-current-price="${item.asset.type === 'cs2skin' ? parseFloat(currentPrice.toFixed(2)) : currentPrice}" data-menu style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--warning);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>↓</span>${appState.t('positions.sell')}</button>
                       ${buyTxCount <= 1
-                        ? `<button class="menu-item" data-menu onclick="positionsController.editPosition('${h.id}', '${item.asset.name}', ${quantity}, ${avgPrice}, '${item.portfolioId}')" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--text-primary);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>✎</span>${appState.t('positions.edit')}</button>`
-                        : `<button class="menu-item" data-menu onclick="positionsController.toggleTransactions('${key}')" title="${appState.language === 'fr' ? 'Modifier les transactions individuelles' : 'Edit individual transactions'}" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--text-primary);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>✎</span>${appState.t('positions.edit')}</button>`
+                        ? `<button class="menu-item edit-position-btn" data-holding-id="${h.id.replace(/"/g, '&quot;')}" data-asset-name="${item.asset.name.replace(/"/g, '&quot;')}" data-quantity="${quantity}" data-avg-price="${avgPrice}" data-portfolio-id="${item.portfolioId.replace(/"/g, '&quot;')}" data-menu style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--text-primary);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>✎</span>${appState.t('positions.edit')}</button>`
+                        : `<button class="menu-item toggle-transactions-btn" data-key="${key.replace(/"/g, '&quot;')}" data-menu title="${appState.language === 'fr' ? 'Modifier les transactions individuelles' : 'Edit individual transactions'}" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--text-primary);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>✎</span>${appState.t('positions.edit')}</button>`
                       }
-                      <button class="menu-item" data-menu onclick="positionsController.deletePosition('${h.id}', '${item.asset.name}')" style="width:100%;text-align:left;background:none;border:none;padding:0.65rem 1rem;cursor:pointer;color:var(--danger);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>✕</span>${appState.t('positions.delete')}</button>
+                      <button class="menu-item delete-position-btn" data-holding-id="${h.id.replace(/"/g, '&quot;')}" data-asset-name="${item.asset.name.replace(/"/g, '&quot;')}" data-menu style="width:100%;text-align:left;background:none;border:none;padding:0.65rem 1rem;cursor:pointer;color:var(--danger);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>✕</span>${appState.t('positions.delete')}</button>
                     </div>
                   </div>
                 ` : ''}
@@ -244,7 +244,7 @@ const positionsController = {
             <input type="hidden" name="holdingId" id="editHoldingId">
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="submit" style="flex: 1;">${appState.t('edit.save')}</button>
-              <button type="button" onclick="positionsController.closeModal()" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
+              <button type="button" class="close-edit-modal-btn" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
             </div>
           </form>
         </div>
@@ -280,7 +280,7 @@ const positionsController = {
             <input type="hidden" name="transactionId" id="editTransactionId">
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="submit" style="flex: 1;">${appState.t('edit.save')}</button>
-              <button type="button" onclick="positionsController.closeTransactionModal()" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
+              <button type="button" class="close-transaction-modal-btn" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
             </div>
           </form>
         </div>
@@ -318,7 +318,7 @@ const positionsController = {
             <input type="hidden" name="maxQty" id="sellMaxQty">
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="submit" style="flex: 1; background: var(--warning);">${appState.t('positions.sell')}</button>
-              <button type="button" onclick="positionsController.closeSellModal()" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
+              <button type="button" class="close-sell-modal-btn" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
             </div>
           </form>
         </div>
@@ -356,7 +356,7 @@ const positionsController = {
             <input type="hidden" name="portfolioId" id="addTxPortfolioId">
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="submit" style="flex: 1;">${appState.t('edit.save')}</button>
-              <button type="button" onclick="positionsController.closeAddTransactionModal()" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
+              <button type="button" class="close-add-transaction-modal-btn" style="flex: 1; background: var(--bg-tertiary);">${appState.t('confirm.cancel')}</button>
             </div>
           </form>
         </div>
@@ -582,6 +582,91 @@ const positionsController = {
         }, 800);
       });
     }
+
+    // Event delegation for menu buttons - using data attributes instead of inline onclick
+    document.addEventListener('click', (e) => {
+      // Close modals
+      if (e.target.classList.contains('close-edit-modal-btn')) {
+        this.closeModal();
+        return;
+      }
+      if (e.target.classList.contains('close-transaction-modal-btn')) {
+        this.closeTransactionModal();
+        return;
+      }
+      if (e.target.classList.contains('close-sell-modal-btn')) {
+        this.closeSellModal();
+        return;
+      }
+      if (e.target.classList.contains('close-add-transaction-modal-btn')) {
+        this.closeAddTransactionModal();
+        return;
+      }
+
+      // Toggle menu button
+      const menuToggleBtn = e.target.closest('.menu-toggle-btn');
+      if (menuToggleBtn) {
+        const key = menuToggleBtn.dataset.menuKey;
+        this.toggleMenu(key);
+        e.stopPropagation();
+        return;
+      }
+
+      // Add transaction button
+      const addTxBtn = e.target.closest('.add-transaction-btn');
+      if (addTxBtn) {
+        const assetId = addTxBtn.dataset.assetId;
+        const portfolioId = addTxBtn.dataset.portfolioId;
+        const assetName = addTxBtn.dataset.assetName;
+        const assetSymbol = addTxBtn.dataset.assetSymbol;
+        this.addTransaction(assetId, portfolioId, assetName, assetSymbol);
+        return;
+      }
+
+      // Sell position button
+      const sellBtn = e.target.closest('.sell-position-btn');
+      if (sellBtn) {
+        const holdingId = sellBtn.dataset.holdingId;
+        const assetId = sellBtn.dataset.assetId;
+        const assetName = sellBtn.dataset.assetName;
+        const assetSymbol = sellBtn.dataset.assetSymbol;
+        const quantity = parseFloat(sellBtn.dataset.quantity);
+        const avgPrice = parseFloat(sellBtn.dataset.avgPrice);
+        const portfolioId = sellBtn.dataset.portfolioId;
+        const currentPrice = parseFloat(sellBtn.dataset.currentPrice);
+        this.sellPosition(holdingId, assetId, assetName, assetSymbol, quantity, avgPrice, portfolioId, currentPrice);
+        return;
+      }
+
+      // Edit position button
+      const editBtn = e.target.closest('.edit-position-btn');
+      if (editBtn) {
+        const holdingId = editBtn.dataset.holdingId;
+        const assetName = editBtn.dataset.assetName;
+        const quantity = parseFloat(editBtn.dataset.quantity);
+        const avgPrice = parseFloat(editBtn.dataset.avgPrice);
+        const portfolioId = editBtn.dataset.portfolioId;
+        this.editPosition(holdingId, assetName, quantity, avgPrice, portfolioId);
+        return;
+      }
+
+      // Delete position button
+      const deleteBtn = e.target.closest('.delete-position-btn');
+      if (deleteBtn) {
+        const holdingId = deleteBtn.dataset.holdingId;
+        const assetName = deleteBtn.dataset.assetName;
+        this.deletePosition(holdingId, assetName);
+        return;
+      }
+
+      // Toggle transactions button
+      const toggleTxBtn = e.target.closest('.toggle-transactions-btn');
+      if (toggleTxBtn) {
+        const key = toggleTxBtn.dataset.key;
+        this.toggleTransactions(key);
+        return;
+      }
+    });
   },
 
   editPosition(id, name, quantity, avgPrice, portfolioId) {
