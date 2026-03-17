@@ -20,4 +20,15 @@ const apiLimiter = rateLimit({
   skip: (req) => process.env.NODE_ENV === 'development',
 });
 
-module.exports = { authLimiter, apiLimiter };
+// Generous rate limit for static resources and health checks
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // 1000 requests per windowMs (very permissive for static files)
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'development',
+});
+
+module.exports = { authLimiter, apiLimiter, globalLimiter };
+

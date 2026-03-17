@@ -8,7 +8,7 @@ const { initializeVapidKeys } = require('./services/pushService');
 const { startWalletSyncJob } = require('./jobs/walletSync');
 const { startDailyPriceJob } = require('./jobs/priceSnapshot');
 const { requireAuth } = require('./middleware/auth');
-const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
+const { authLimiter, apiLimiter, globalLimiter } = require('./middleware/rateLimiter');
 const { csrfTokenMiddleware, csrfProtectMiddleware } = require('./middleware/csrf');
 
 // Validate required environment variables
@@ -77,11 +77,21 @@ app.use('/api', requireAuth, apiLimiter, require('./routes/import'));
 app.use('/api', requireAuth, apiLimiter, require('./routes/cache'));
 app.use('/api/cs2', requireAuth, apiLimiter, require('./routes/cs2'));
 
-app.get('/health', (req, res) => {
+// Global rate limit for all requests (very generous - shouldn't impact normal usage)
+const globalLimiter = require('express-rate-limit')({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // 1000 requests per windowMs (very permissive for static files)
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'development',
+});
+
+app.get('/health', globalLimiter, (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('*', (req, res) => {
+app.get('*', globalLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
