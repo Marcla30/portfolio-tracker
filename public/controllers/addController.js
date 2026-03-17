@@ -697,20 +697,24 @@ const addController = {
               <td>${w.address.slice(0, 10)}...${w.address.slice(-8)}</td>
               <td>${w.blockchain}</td>
               <td>
-                <button onclick="addController.deleteWallet('${w.id}')">${appState.t('add.deleteButton')}</button>
+                <button class="delete-wallet-btn" data-wallet-id="${w.id.replace(/"/g, '&quot;')}">${appState.t('add.deleteButton')}</button>
               </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     `;
-  },
 
-  async deleteWallet(id) {
-    if (await appState.showConfirm(appState.t('confirm.deleteWallet'), appState.t('confirm.deleteWalletMsg'))) {
-      await api.wallets.delete(id);
-      this.loadWallets();
-    }
+    // Use event delegation for delete buttons
+    walletsDiv.querySelector('table')?.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('delete-wallet-btn')) {
+        const walletId = e.target.dataset.walletId;
+        if (await appState.showConfirm(appState.t('confirm.deleteWallet'), appState.t('confirm.deleteWalletMsg'))) {
+          await api.wallets.delete(walletId);
+          this.loadWallets();
+        }
+      }
+    });
   },
 
   async loadImportHistory() {
@@ -1110,19 +1114,29 @@ const addController = {
                     <span>Min: ${appState.formatCurrencyPlain(p.minValue)}</span>
                     <span>${lang ? 'Sync:' : 'Sync:'} ${lastSync}</span>
                   </div>
-                  <button onclick="addController.showResyncForm('${p.steamId}', '${p.portfolioId || ''}', ${p.minValue})" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer;">↻ Re-sync</button>
+                  <button class="steam-resync-btn" data-steam-id="${p.steamId.replace(/"/g, '&quot;')}" data-portfolio-id="${(p.portfolioId || '').replace(/"/g, '&quot;')}" data-min-value="${p.minValue}" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer;">↻ Re-sync</button>
                 </div>
-                <div id="resync-form-${p.steamId}" style="display: none; margin-top: 0.75rem;"></div>
+                <div id="resync-form-${p.steamId.replace(/"/g, '&quot;')}" style="display: none; margin-top: 0.75rem;"></div>
               </div>`;
           }).join('')}
         </div>
         <hr style="border: none; border-top: 1px solid var(--border); margin-bottom: 1.25rem;">
       `;
+
+      // Use event delegation for resync buttons
+      container.addEventListener('click', (e) => {
+        if (e.target.classList.contains('steam-resync-btn')) {
+          const steamId = e.target.dataset.steamId;
+          const portfolioId = e.target.dataset.portfolioId;
+          const minValue = parseFloat(e.target.dataset.minValue);
+          this.showResyncForm(steamId, portfolioId, minValue);
+        }
+      });
     } catch (e) { container.innerHTML = ''; }
   },
 
   async showResyncForm(steamId, defaultPortfolioId, defaultMinValue) {
-    const formDiv = document.getElementById(`resync-form-${steamId}`);
+    const formDiv = document.getElementById(`resync-form-${steamId.replace(/"/g, '&quot;')}`);
     if (!formDiv) return;
     if (formDiv.style.display !== 'none') { formDiv.style.display = 'none'; return; }
     const portfolios = await api.portfolios.getAll();
@@ -1132,20 +1146,28 @@ const addController = {
       <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end;">
         <div>
           <label style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Portfolio</label>
-          <select id="resync-portfolio-${steamId}" style="min-width: 130px;">
+          <select id="resync-portfolio-${steamId.replace(/"/g, '&quot;')}" style="min-width: 130px;">
             ${portfolios.map(p => `<option value="${p.id}" ${p.id === defaultPortfolioId ? 'selected' : ''}>${p.name}</option>`).join('')}
           </select>
         </div>
         <div>
           <label style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">${lang ? 'Valeur min' : 'Min value'} (${appState.currency})</label>
-          <input type="number" id="resync-minvalue-${steamId}" value="${defaultMinValue}" min="0" step="0.1" style="width: 90px;">
+          <input type="number" id="resync-minvalue-${steamId.replace(/"/g, '&quot;')}" value="${defaultMinValue}" min="0" step="0.1" style="width: 90px;">
         </div>
-        <button onclick="addController.steamResync('${steamId}')" id="resync-btn-${steamId}" style="padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer;">
+        <button class="steam-resync-start-btn" data-steam-id="${steamId.replace(/"/g, '&quot;')}" id="resync-btn-${steamId.replace(/"/g, '&quot;')}" style="padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer;">
           ${lang ? 'Lancer' : 'Start'}
         </button>
       </div>
-      <div id="resync-status-${steamId}" style="margin-top: 0.75rem;"></div>
+      <div id="resync-status-${steamId.replace(/"/g, '&quot;')}" style="margin-top: 0.75rem;"></div>
     `;
+
+    // Use event delegation for start button
+    formDiv.addEventListener('click', (e) => {
+      if (e.target.classList.contains('steam-resync-start-btn')) {
+        const steam = e.target.dataset.steamId;
+        this.steamResync(steam);
+      }
+    });
   },
 
   steamResync(steamId) {

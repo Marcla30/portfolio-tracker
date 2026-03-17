@@ -24,6 +24,11 @@ async function resolveSteamId(profileUrl) {
   if (vanityMatch) {
     const vanityName = vanityMatch[1];
 
+    // Validate vanity name: only alphanumeric, underscores, hyphens (prevent path traversal)
+    if (!/^[a-zA-Z0-9_-]+$/.test(vanityName)) {
+      throw new Error('Invalid Steam vanity URL format. Only letters, numbers, underscores and hyphens are allowed.');
+    }
+
     // Prefer STEAM_API_KEY if available, otherwise fall back to XML profile page
     if (process.env.STEAM_API_KEY) {
       const res = await axios.get(STEAM_VANITY_URL, {
@@ -64,6 +69,11 @@ async function resolveSteamId(profileUrl) {
  * very high count values (≥5000) with 400.
  */
 async function fetchSteamInventory(steamId64) {
+  // Validate steamId64 is a numeric string (17 digits)
+  if (!/^\d{17}$/.test(steamId64)) {
+    throw new Error('Invalid Steam ID format');
+  }
+
   const baseUrl = `${STEAM_INVENTORY_URL}/${steamId64}/730/2`;
   const PAGE_SIZE = 200;
   const MAX_PAGES = 15; // safety limit: 15 × 200 = 3000 items max
@@ -157,6 +167,11 @@ async function fetchSteamInventory(steamId64) {
 }
 
 async function fetchSteamProfileName(steamId64) {
+  // Validate steamId64 is a numeric string (17 digits) to prevent SSRF
+  if (!/^\d{17}$/.test(steamId64)) {
+    throw new Error('Invalid Steam ID format');
+  }
+
   try {
     const res = await axios.get(`https://steamcommunity.com/profiles/${steamId64}/?xml=1`, { timeout: 8000 });
     const match = res.data?.match(/<steamID><!\[CDATA\[(.+?)\]\]><\/steamID>/);

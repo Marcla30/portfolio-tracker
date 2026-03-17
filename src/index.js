@@ -9,13 +9,28 @@ const { startWalletSyncJob } = require('./jobs/walletSync');
 const { startDailyPriceJob } = require('./jobs/priceSnapshot');
 const { requireAuth } = require('./middleware/auth');
 
+// Validate required environment variables
+const requiredEnvVars = ['SESSION_SECRET', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+if (missingEnvVars.length > 0) {
+  console.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Trust reverse proxy (nginx etc.) so req.secure reflects X-Forwarded-Proto: https
 app.set('trust proxy', 1);
 
-app.use(cors({ credentials: true, origin: process.env.CORS_ORIGIN || 'https://selfolio.app' }));
+// CORS origin should always be explicitly configured
+const corsOrigin = process.env.CORS_ORIGIN;
+if (!corsOrigin) {
+  console.error('CORS_ORIGIN environment variable is required');
+  process.exit(1);
+}
+
+app.use(cors({ credentials: true, origin: corsOrigin }));
 app.use(express.json());
 app.use(session({
   store: new pgSession({
@@ -23,7 +38,7 @@ app.use(session({
     tableName: 'Session',
     createTableIfMissing: true
   }),
-  secret: process.env.SESSION_SECRET || 'selfolio-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   rolling: true,
@@ -64,7 +79,10 @@ app.get('*', (req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: err.message });
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  res.status(500).json({
+    error: isDevelopment ? err.message : 'Internal server error'
+  });
 });
 
 async function start() {

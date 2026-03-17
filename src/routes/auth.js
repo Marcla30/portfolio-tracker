@@ -5,6 +5,11 @@ const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Validate JWT_SECRET is configured
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+
 function signToken(userId, tokenVersion) {
   return jwt.sign({ userId, v: tokenVersion }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
