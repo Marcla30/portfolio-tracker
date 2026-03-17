@@ -19,6 +19,13 @@ router.get('/config', (req, res) => {
   res.json({ registrationEnabled: process.env.REGISTRATION_ENABLED !== 'false' });
 });
 
+// Get CSRF token for web-based requests
+// This endpoint is public so clients can get a token before making authenticated requests
+router.get('/csrf-token', (req, res) => {
+  const token = req.session?.csrfToken || '';
+  res.json({ csrfToken: token });
+});
+
 // Register
 router.post('/register', async (req, res) => {
   if (process.env.REGISTRATION_ENABLED === 'false') {

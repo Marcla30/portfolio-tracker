@@ -9,6 +9,7 @@ const { startWalletSyncJob } = require('./jobs/walletSync');
 const { startDailyPriceJob } = require('./jobs/priceSnapshot');
 const { requireAuth } = require('./middleware/auth');
 const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
+const { csrfTokenMiddleware, csrfProtectMiddleware } = require('./middleware/csrf');
 
 // Validate required environment variables
 const requiredEnvVars = ['SESSION_SECRET', 'JWT_SECRET'];
@@ -50,10 +51,16 @@ app.use(session({
   }
 }));
 
+// CSRF token generation for authenticated sessions
+app.use(csrfTokenMiddleware);
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Auth routes with rate limiting
 app.use('/api/auth', authLimiter, require('./routes/auth'));
+
+// CSRF protection for state-changing requests via session cookies
+app.use('/api', csrfProtectMiddleware);
 
 // Protected routes with rate limiting
 app.use('/api/portfolios', requireAuth, apiLimiter, require('./routes/portfolios'));
