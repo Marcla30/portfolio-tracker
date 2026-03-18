@@ -1,9 +1,36 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const axios = require('axios');
 const { getCurrentPrice } = require('../services/priceService');
 const { getHistoricalPrice } = require('../services/historicalPriceService');
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Search endpoint for Yahoo Finance stocks/ETFs
+router.get('/search', async (req, res) => {
+  try {
+    const { q, type } = req.query;
+    if (!q || q.length < 2) {
+      return res.json({ quotes: [] });
+    }
+
+    const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`;
+    const response = await axios.get(yahooUrl, { timeout: 10000 });
+
+    // Filter by type if specified
+    let quotes = response.data.quotes || [];
+    if (type === 'stock') {
+      quotes = quotes.filter(q => q.quoteType === 'EQUITY');
+    } else if (type === 'etf') {
+      quotes = quotes.filter(q => q.quoteType === 'ETF');
+    }
+
+    res.json({ quotes });
+  } catch (error) {
+    console.error('Yahoo Finance search error:', error.message);
+    res.status(500).json({ error: 'Search failed', quotes: [] });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {

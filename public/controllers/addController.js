@@ -442,33 +442,25 @@ const addController = {
       const lowerQuery = query.toLowerCase();
 
       if (typeFilter === 'stock' || typeFilter === 'etf') {
-        // Dynamic search using Yahoo Finance API
+        // Dynamic search using backend proxy to Yahoo Finance
         try {
-          const yahooRes = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0`);
-          const yahooData = await yahooRes.json();
+          const response = await fetch(`/api/assets/search?q=${encodeURIComponent(query)}&type=${typeFilter}`);
+          const data = await response.json();
 
-          if (yahooData.quotes && Array.isArray(yahooData.quotes)) {
-            yahooData.quotes.forEach(q => {
-              // Filter by quoteType
-              if (typeFilter === 'stock' && q.quoteType === 'EQUITY') {
-                results.push({
-                  symbol: q.symbol,
-                  name: q.shortname || q.longname || q.symbol,
-                  type: 'stock',
-                  typeLabel: appState.language === 'fr' ? 'Action' : 'Stock'
-                });
-              } else if (typeFilter === 'etf' && q.quoteType === 'ETF') {
-                results.push({
-                  symbol: q.symbol,
-                  name: q.shortname || q.longname || q.symbol,
-                  type: 'etf',
-                  typeLabel: 'ETF'
-                });
-              }
+          if (data.quotes && Array.isArray(data.quotes)) {
+            data.quotes.forEach(q => {
+              results.push({
+                symbol: q.symbol,
+                name: q.shortname || q.longname || q.symbol,
+                type: typeFilter,
+                typeLabel: typeFilter === 'stock'
+                  ? (appState.language === 'fr' ? 'Action' : 'Stock')
+                  : 'ETF'
+              });
             });
           }
         } catch (e) {
-          console.error('Yahoo Finance search failed:', e);
+          console.error('Asset search failed:', e);
         }
       } else if (typeFilter === 'metal') {
         const metals = [
