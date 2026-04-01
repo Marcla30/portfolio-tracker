@@ -797,3 +797,29 @@ table button {
 .timeframe-btn:hover:not(.active) {
   background: var(--bg-secondary);
 }
+
+.menu-toggle-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.menu-toggle-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.menu-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  display: block;
+}

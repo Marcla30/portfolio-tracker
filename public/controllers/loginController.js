@@ -26,6 +26,7 @@ const loginController = {
               </div>
               <button type="submit" style="width: 100%;">Login</button>
             </form>
+            <div id="loginLoading" style="color: var(--text-secondary); margin-top: 0.75rem; text-align: center; display: none;"></div>
             <div id="loginError" style="color: var(--danger); margin-top: 1rem; text-align: center; display: none;"></div>
             ${registrationEnabled ? `
             <p style="text-align: center; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
@@ -69,7 +70,21 @@ const loginController = {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target));
       const errorEl = document.getElementById('loginError');
+      const loadingEl = document.getElementById('loginLoading');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const fields = e.target.querySelectorAll('input, button');
       errorEl.style.display = 'none';
+
+      const setLoading = (isLoading) => {
+        fields.forEach(el => { el.disabled = isLoading; });
+        if (submitBtn) submitBtn.textContent = isLoading ? 'Loading...' : 'Login';
+        if (loadingEl) {
+          loadingEl.textContent = isLoading ? 'Connexion en cours...' : '';
+          loadingEl.style.display = isLoading ? 'block' : 'none';
+        }
+      };
+
+      setLoading(true);
 
       try {
         const response = await fetch('/api/auth/login', {
@@ -94,6 +109,8 @@ const loginController = {
       } catch (error) {
         errorEl.textContent = 'Connection error';
         errorEl.style.display = 'block';
+      } finally {
+        setLoading(false);
       }
     });
 

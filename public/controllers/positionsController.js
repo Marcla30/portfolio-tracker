@@ -194,7 +194,13 @@ const positionsController = {
                     <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.1rem;">${appState.t('positions.currentPrice')}: ${appState.formatCurrency(currentPrice)}</div>
                   </div>
                   <div style="position: relative;" data-menu>
-                    <button class="menu-toggle-btn" data-menu-key="${key.replace(/"/g, '&quot;')}" data-menu style="background: var(--bg-secondary); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 8px; font-size: 1.3rem; padding: 0; cursor: pointer; color: var(--text-secondary);">⋮</button>
+                    <button class="menu-toggle-btn" data-menu-key="${key.replace(/"/g, '&quot;')}" data-menu aria-label="Actions">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="5" r="1.8"></circle>
+                        <circle cx="12" cy="12" r="1.8"></circle>
+                        <circle cx="12" cy="19" r="1.8"></circle>
+                      </svg>
+                    </button>
                     <div id="menu-${key.replace(/"/g, '&quot;')}" data-menu style="display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; min-width: 170px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); overflow: hidden;">
                       <button class="menu-item add-transaction-btn" data-asset-id="${item.assetId.replace(/"/g, '&quot;')}" data-portfolio-id="${item.portfolioId.replace(/"/g, '&quot;')}" data-asset-name="${item.asset.name.replace(/"/g, '&quot;')}" data-asset-symbol="${item.asset.symbol.replace(/"/g, '&quot;')}" data-menu style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:#4ade80;font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>＋</span>${appState.t('positions.addTransaction')}</button>
                       <button class="menu-item sell-position-btn" data-holding-id="${h.id.replace(/"/g, '&quot;')}" data-asset-id="${item.assetId.replace(/"/g, '&quot;')}" data-asset-name="${item.asset.name.replace(/"/g, '&quot;')}" data-asset-symbol="${item.asset.symbol.replace(/"/g, '&quot;')}" data-quantity="${quantity}" data-avg-price="${avgPrice}" data-portfolio-id="${item.portfolioId.replace(/"/g, '&quot;')}" data-current-price="${item.asset.type === 'cs2skin' ? parseFloat(currentPrice.toFixed(2)) : currentPrice}" data-menu style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);padding:0.65rem 1rem;cursor:pointer;color:var(--warning);font-size:0.88rem;display:flex;align-items:center;gap:0.6rem;"><span>↓</span>${appState.t('positions.sell')}</button>

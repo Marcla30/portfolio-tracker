@@ -59,6 +59,37 @@ const dashboardController = {
     const totalPL = totalValue - totalCost;
     const totalPLPercent = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
 
+    const sortedFiltered = this.holdings
+      .filter(h => this.filterType === 'all' || h.asset.type === this.filterType)
+      .sort((a, b) => {
+        let comparison = 0;
+
+        if (this.sortBy === 'name') {
+          comparison = a.asset.name.localeCompare(b.asset.name);
+        } else if (this.sortBy === 'quantity') {
+          comparison = parseFloat(a.quantity) - parseFloat(b.quantity);
+        } else if (this.sortBy === 'avgPrice') {
+          comparison = parseFloat(a.avgPrice) - parseFloat(b.avgPrice);
+        } else if (this.sortBy === 'currentPrice') {
+          comparison = a.currentPrice - b.currentPrice;
+        } else if (this.sortBy === 'value') {
+          comparison = a.currentValue - b.currentValue;
+        } else if (this.sortBy === 'pl') {
+          const aPL = a.currentValue - (parseFloat(a.quantity) * parseFloat(a.avgPrice));
+          const bPL = b.currentValue - (parseFloat(b.quantity) * parseFloat(b.avgPrice));
+          comparison = aPL - bPL;
+        } else if (this.sortBy === 'plPercent') {
+          const aAvg = parseFloat(a.avgPrice);
+          const bAvg = parseFloat(b.avgPrice);
+          const aPLPercent = aAvg > 0 ? ((a.currentPrice - aAvg) / aAvg * 100) : 0;
+          const bPLPercent = bAvg > 0 ? ((b.currentPrice - bAvg) / bAvg * 100) : 0;
+          comparison = aPLPercent - bPLPercent;
+        }
+
+        return this.sortOrder === 'asc' ? comparison : -comparison;
+      });
+    const topHoldings = sortedFiltered.slice(0, 5);
+
     app.innerHTML = `
       <div class="header-stats">
         <div class="stat-card">
@@ -136,16 +167,27 @@ const dashboardController = {
 
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-          <h2 style="margin: 0;">${appState.t('dashboard.positions')}</h2>
-          <select id="filterTypeDash" style="width: auto;">
-            <option value="all">${appState.t('positions.filterAll')}</option>
-            <option value="crypto">${appState.t('add.typeCrypto')}</option>
-            <option value="stock">${appState.t('add.typeStock')}</option>
-            <option value="etf">${appState.t('add.typeEtf')}</option>
-            <option value="metal">${appState.t('add.typeMetal')}</option>
-            <option value="cash">${appState.t('add.typeCash')}</option>
-            <option value="cs2skin">${appState.t('add.typeCs2skin')}</option>
-          </select>
+          <div>
+            <h2 style="margin: 0;">${appState.t('dashboard.positions')}</h2>
+            <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.2rem;">
+              ${this.holdings.length === 0
+                ? (appState.language === 'fr' ? 'Aucune position pour le moment' : 'No positions yet')
+                : (appState.language === 'fr' ? `Top ${topHoldings.length} sur ${sortedFiltered.length}` : `Top ${topHoldings.length} of ${sortedFiltered.length}`)}
+            </div>
+          </div>
+          <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap: wrap;">
+            <a href="/positions" data-route style="text-decoration:none; color: var(--text-primary); border: 1px solid var(--border); background: var(--bg-tertiary); padding: 0.5rem 0.8rem; border-radius: 6px; font-size: 0.86rem;">${appState.language === 'fr' ? 'Voir tout' : 'See all'}</a>
+            <a href="/add" data-route style="text-decoration:none; color: #fff; background: var(--accent); padding: 0.5rem 0.8rem; border-radius: 6px; font-size: 0.86rem;">${appState.language === 'fr' ? 'Ajouter un actif' : 'Add asset'}</a>
+            <select id="filterTypeDash" style="width: auto;">
+              <option value="all">${appState.t('positions.filterAll')}</option>
+              <option value="crypto">${appState.t('add.typeCrypto')}</option>
+              <option value="stock">${appState.t('add.typeStock')}</option>
+              <option value="etf">${appState.t('add.typeEtf')}</option>
+              <option value="metal">${appState.t('add.typeMetal')}</option>
+              <option value="cash">${appState.t('add.typeCash')}</option>
+              <option value="cs2skin">${appState.t('add.typeCs2skin')}</option>
+            </select>
+          </div>
         </div>
         <table>
           <thead>
@@ -159,36 +201,9 @@ const dashboardController = {
             </tr>
           </thead>
           <tbody>
-            ${this.holdings
-              .filter(h => this.filterType === 'all' || h.asset.type === this.filterType)
-              .sort((a, b) => {
-                let comparison = 0;
-                
-                if (this.sortBy === 'name') {
-                  comparison = a.asset.name.localeCompare(b.asset.name);
-                } else if (this.sortBy === 'quantity') {
-                  comparison = parseFloat(a.quantity) - parseFloat(b.quantity);
-                } else if (this.sortBy === 'avgPrice') {
-                  comparison = parseFloat(a.avgPrice) - parseFloat(b.avgPrice);
-                } else if (this.sortBy === 'currentPrice') {
-                  comparison = a.currentPrice - b.currentPrice;
-                } else if (this.sortBy === 'value') {
-                  comparison = a.currentValue - b.currentValue;
-                } else if (this.sortBy === 'pl') {
-                  const aPL = a.currentValue - (parseFloat(a.quantity) * parseFloat(a.avgPrice));
-                  const bPL = b.currentValue - (parseFloat(b.quantity) * parseFloat(b.avgPrice));
-                  comparison = aPL - bPL;
-                } else if (this.sortBy === 'plPercent') {
-                  const aAvg = parseFloat(a.avgPrice);
-                  const bAvg = parseFloat(b.avgPrice);
-                  const aPLPercent = aAvg > 0 ? ((a.currentPrice - aAvg) / aAvg * 100) : 0;
-                  const bPLPercent = bAvg > 0 ? ((b.currentPrice - bAvg) / bAvg * 100) : 0;
-                  comparison = aPLPercent - bPLPercent;
-                }
-                
-                return this.sortOrder === 'asc' ? comparison : -comparison;
-              })
-              .map(h => {
+            ${topHoldings.length === 0
+              ? `<tr><td colspan="6" style="text-align:center; color: var(--text-secondary); padding: 1.2rem;">${appState.language === 'fr' ? 'Aucune position. Ajoute ton premier actif depuis la page Ajouter.' : 'No positions yet. Add your first asset from the Add page.'}</td></tr>`
+              : topHoldings.map(h => {
               const pl = h.currentValue - (parseFloat(h.quantity) * parseFloat(h.avgPrice));
               const avgPrice = parseFloat(h.avgPrice);
               const plPercent = avgPrice > 0 ? ((h.currentPrice - avgPrice) / avgPrice * 100) : 0;
@@ -358,6 +373,7 @@ const dashboardController = {
         
         return this.sortOrder === 'asc' ? comparison : -comparison;
       })
+      .slice(0, 5)
       .map(h => {
         const pl = h.currentValue - (parseFloat(h.quantity) * parseFloat(h.avgPrice));
         const avgPrice = parseFloat(h.avgPrice);
@@ -375,6 +391,10 @@ const dashboardController = {
           </tr>
         `;
       }).join('');
+
+    if (!tbody.innerHTML) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-secondary); padding: 1.2rem;">${appState.language === 'fr' ? 'Aucune position dans ce filtre.' : 'No positions for this filter.'}</td></tr>`;
+    }
     
     document.querySelectorAll('th[data-sort]').forEach(th => {
       th.addEventListener('click', (e) => {
