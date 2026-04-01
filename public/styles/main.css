@@ -147,6 +147,25 @@ body.privacy-mode .private-amount { filter: blur(7px); user-select: none; }
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.stat-card-clickable {
+  cursor: pointer;
+}
+
+.stat-card-head {
+  display: flex;
+  align-items: center;
+  padding-right: 2rem;
+}
+
+.stat-icon {
+  color: var(--accent);
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
 }
 
 .stat-label {
@@ -563,8 +582,30 @@ table button {
   .stat-card {
     padding: 0.75rem;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
+    text-align: center;
+    gap: 0.25rem;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  }
+
+  .stat-card-head {
+    width: 100%;
+    justify-content: center;
+    padding-right: 0;
+    margin-bottom: 0.1rem;
+  }
+
+  .stat-card .stat-value {
+    width: 100%;
+    text-align: center;
+  }
+
+  .stat-icon {
+    top: 0.65rem;
+    right: 0.65rem;
+    width: 18px;
+    height: 18px;
   }
 
   .stat-sublabel {

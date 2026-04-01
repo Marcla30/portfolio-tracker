@@ -394,7 +394,7 @@ const statsController = {
                   const value = context.parsed;
                   const total = context.dataset.data.reduce((a, b) => a + b, 0);
                   const percent = ((value / total) * 100).toFixed(1);
-                  return ` ${appState.formatCurrency(value)} (${percent}%)`;
+                  return ` ${appState.formatCurrencyPlain(value)} (${percent}%)`;
                 }
               }
             }
